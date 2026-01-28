@@ -16,7 +16,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-// Ajuste os imports abaixo conforme seu pacote real
 import com.example.zent.presentation.HomeScreen
 import com.example.zent.presentation.LibraryScreen
 import com.zent.app.presentation.navigation.Screen
@@ -24,6 +23,7 @@ import com.zent.app.presentation.navigation.bottomNavItems
 import com.zent.app.presentation.profile.ProfileScreen
 import com.zent.app.presentation.stats.StatsScreen
 import com.zent.app.presentation.components.ZentTopBar // Importe a TopBar nova
+import com.zent.app.presentation.create.CreateQuizScreen
 
 val ZentGreenPrimary = Color(0xFF7E9F8F)
 val ZentGreenLight = Color(0xFFE8F5E9)
@@ -32,72 +32,83 @@ val ZentGrayText = Color(0xFF6B7280)
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    // Usamos Box para permitir sobreposição (Layers)
+    // LÓGICA DE ESTADO DA TOP BAR
+    // Define quais telas são consideradas "Principais" (tem botão Criar e fundo vidro)
+    val mainScreens = listOf(
+        Screen.Home.route,
+        Screen.Library.route,
+        Screen.Stats.route,
+        Screen.Profile.route
+    )
+
+    val isMainScreen = currentRoute in mainScreens
+
+    // Se for a tela CreateQuiz, a BottomBar deve sumir
+    val showBottomBar = isMainScreen
+
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Definição dos espaçamentos para o conteúdo não ficar escondido
-        // Topo: 100dp (TopBar) + um pouco extra
-        // Baixo: 80dp (NavBar) + um pouco extra
-        val contentPadding = PaddingValues(top = 110.dp, bottom = 100.dp)
+        // Ajuste de Padding:
+        // Na Home: Topo grande (110dp)
+        // Na Create: Topo grande (110dp) também, pois a TopBar ainda existe lá!
+        val topPadding = 110.dp
+        val bottomPadding = if (showBottomBar) 100.dp else 0.dp
 
-        // CAMADA 1: CONTEÚDO (Fundo)
+        val contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
+
+        // 1. CONTEÚDO
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
             modifier = Modifier.fillMaxSize()
         ) {
-            composable(Screen.Home.route) {
-                HomeScreen(contentPadding = contentPadding)
-            }
-            composable(Screen.Library.route) {
-                LibraryScreen(contentPadding = contentPadding)
-            }
-            composable(Screen.Stats.route) {
-                StatsScreen(contentPadding = contentPadding)
-            }
-            composable(Screen.Profile.route) {
-                ProfileScreen(contentPadding = contentPadding)
+            // Telas Principais
+            composable(Screen.Home.route) { HomeScreen(contentPadding) }
+            composable(Screen.Library.route) { LibraryScreen(contentPadding) }
+            composable(Screen.Stats.route) { StatsScreen(contentPadding) }
+            composable(Screen.Profile.route) { ProfileScreen(contentPadding) }
+
+            // Tela de Criação (Recebe o padding também!)
+            composable(Screen.CreateQuiz.route) {
+                CreateQuizScreen(contentPadding = contentPadding)
             }
         }
 
-        // CAMADA 2: TOP BAR (Fixa no topo)
+        // 2. TOP BAR ÚNICA (Reage ao estado)
         ZentTopBar(
             modifier = Modifier.align(Alignment.TopCenter),
-            onActionClick = { /* Ação Global */ }
+            title = "Zent",
+            isMainScreen = isMainScreen,
+            onActionClick = {
+                navController.navigate(Screen.CreateQuiz.route)
+            },
+            onBackClick = {
+                navController.popBackStack()
+            }
         )
 
-        // CAMADA 3: BOTTOM BAR (Fixa embaixo)
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            NavigationBar(
-                containerColor = Color.White,
-                tonalElevation = 8.dp
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-
-                bottomNavItems.forEach { screen ->
-                    val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(screen.icon, contentDescription = null) },
-                        label = { Text(screen.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = ZentGreenPrimary,
-                            selectedTextColor = ZentGreenPrimary,
-                            indicatorColor = ZentGreenLight,
-                            unselectedIconColor = ZentGrayText,
-                            unselectedTextColor = ZentGrayText
+        // 3. BOTTOM BAR (Condicional)
+        if (showBottomBar) {
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                // ... (Código da NavigationBar igual ao anterior) ...
+                // Cole aqui a sua NavigationBar que já estava funcionando
+                NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
+                    // ... itens ...
+                    bottomNavItems.forEach { screen ->
+                        // ... NavigationBarItem ...
+                        // copie a lógica que já fizemos antes
+                        val isSelected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = { navController.navigate(screen.route) { popUpTo(navController.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                            icon = { Icon(screen.icon, null) },
+                            label = { Text(screen.label) },
+                            colors = NavigationBarItemDefaults.colors(selectedIconColor = ZentGreenPrimary, selectedTextColor = ZentGreenPrimary, indicatorColor = ZentGreenLight, unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
                         )
-                    )
+                    }
                 }
             }
         }
