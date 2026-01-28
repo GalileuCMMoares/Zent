@@ -40,32 +40,29 @@ val ZentGreenLight = Color(0xFFE8F5E9)   // Fundo ícone verde
 val ZentGrayText = Color(0xFF6B7280)     // Cinza textos secundários
 
 @Composable
-fun HomeScreen() {
-    Scaffold(
-        containerColor = ZentBackground,
-        bottomBar = { ZentBottomNavigation() }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp) // Margem lateral geral
-                .verticalScroll(rememberScrollState()) // Scroll vertical
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-            TopBarSection()
+fun HomeScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp) // Recebe o padding do MainScreen
+) {
+    // Removemos o Scaffold interno para usar o layout do MainScreen
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp) // Padding lateral fixo
+            .verticalScroll(rememberScrollState()) // Scroll
+    ) {
+        // Espaço do Topo (transparente)
+        Spacer(modifier = Modifier.height(contentPadding.calculateTopPadding()))
 
-            Spacer(modifier = Modifier.height(24.dp))
-            HeroSection()
+        // Removido: TopBarSection() (Agora é global)
 
-            Spacer(modifier = Modifier.height(32.dp))
-            RecentsSection()
+        HeroSection()
+        Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-            StatsSection()
+        RecentsSection()
+        Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(32.dp)) // Espaço final
-        }
+        StatsSection()
+
     }
 }
 
@@ -317,58 +314,6 @@ fun StatCard(modifier: Modifier = Modifier, label: String, value: String, subLab
         }
     }
 }
-
-// --- 5. BOTTOM NAVIGATION ---
-@Composable
-fun ZentBottomNavigation() {
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
-    ) {
-        NavigationBarItem(
-            selected = true,
-            onClick = { },
-            icon = { Icon(Icons.Default.Home, contentDescription = null) },
-            label = { Text("Início") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = ZentGreenPrimary,
-                selectedTextColor = ZentGreenPrimary,
-                indicatorColor = ZentGreenLight
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Book, contentDescription = null) },
-            label = { Text("Biblioteca") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText,
-                unselectedTextColor = ZentGrayText
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-            label = { Text("Estatísticas") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText,
-                unselectedTextColor = ZentGrayText
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Person, contentDescription = null) },
-            label = { Text("Perfil") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText,
-                unselectedTextColor = ZentGrayText
-            )
-        )
-    }
-}
-
 // --- MOCK DATA ---
 data class SubjectMock(
     val title: String,

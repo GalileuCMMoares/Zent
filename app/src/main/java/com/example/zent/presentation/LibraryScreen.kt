@@ -31,47 +31,36 @@ val ZentGreenDarker = Color(0xFF6B8A7A)  // Um pouco mais escuro para botões s�
 val ZentGrayLight = Color(0xFFE5E7EB)    // Cinza bem claro para barras de fundo
 
 @Composable
-fun LibraryScreen() {
-    Scaffold(
-        containerColor = ZentBackground,
-        bottomBar = { LibraryBottomNavigation() } // Bottom Bar com seleção correta
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // 1. Topo (Logo Zent e Botão Criar)
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                LibraryTopBar()
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+fun LibraryScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        // APLICA O PADDING DO MAIN SCREEN DIRETO NA LISTA
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Removido: item { LibraryTopBar() }
 
-            // 2. Cabeçalho "Biblioteca" + Botão Novo
-            item {
-                LibraryHeaderSection()
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // 3. Resumo (Cards Pequenos)
-            item {
-                LibraryStatsRow()
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // 4. Lista de Baralhos
-            items(getLibraryMockData()) { deck ->
-                DeckCardItem(deck)
-            }
-
-            // Espaço extra no final para não cortar o último item
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+        // Cabeçalho "Biblioteca"
+        item {
+            // Pequeno ajuste visual se necessário
+            LibraryHeaderSection()
+            Spacer(modifier = Modifier.height(8.dp))
         }
+
+        item {
+            LibraryStatsRow()
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        items(getLibraryMockData()) { deck ->
+            DeckCardItem(deck)
+        }
+
+
     }
 }
 
@@ -140,7 +129,7 @@ fun LibraryHeaderSection() {
         ) {
             Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp), tint = Color.White)
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Novo", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Novo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
@@ -310,56 +299,6 @@ fun DeckCardItem(deck: DeckMock) {
         }
     }
 }
-
-// --- BOTTOM NAVIGATION (Cópia atualizada para Biblioteca) ---
-@Composable
-fun LibraryBottomNavigation() {
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
-    ) {
-        NavigationBarItem(
-            selected = false,
-            onClick = { /* Navegar Home */ },
-            icon = { Icon(Icons.Default.Home, null) },
-            label = { Text("Início") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText
-            )
-        )
-        // ITEM SELECIONADO:
-        NavigationBarItem(
-            selected = true,
-            onClick = { },
-            icon = { Icon(Icons.Default.Book, null) },
-            label = { Text("Biblioteca") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = ZentGreenPrimary,
-                selectedTextColor = ZentGreenPrimary,
-                indicatorColor = ZentGreenLight
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.BarChart, null) },
-            label = { Text("Estatísticas") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Person, null) },
-            label = { Text("Perfil") },
-            colors = NavigationBarItemDefaults.colors(
-                unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText
-            )
-        )
-    }
-}
-
 // --- DADOS MOCK (Baseados na imagem) ---
 data class DeckMock(
     val title: String,

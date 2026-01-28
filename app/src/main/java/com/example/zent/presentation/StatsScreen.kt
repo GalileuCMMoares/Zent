@@ -44,88 +44,25 @@ val ZentGrayText = Color(0xFF9CA3AF)
 val ZentGrayLight = Color(0xFFE5E7EB)
 
 @Composable
-fun StatsScreen() {
-    Scaffold(
-        containerColor = ZentBackground,
-        bottomBar = { StatsBottomNavigation() } // Nav Bar local
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // 1. Topo (Logo + Criar)
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                StatsTopBar()
-            }
-
-            // 2. Cards de Resumo
-            item {
-                SummaryCardsRow()
-            }
-
-            // 3. Gráfico de Retenção
-            item {
-                RetentionChartCard()
-            }
-
-            // 4. Heatmap
-            item {
-                HeatmapCard()
-            }
-
-            // 5. Desempenho
-            item {
-                SubjectPerformanceCard()
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-}
-
-// --- BARRA DE NAVEGAÇÃO LOCAL (Fixa nesta tela) ---
-@Composable
-fun StatsBottomNavigation() {
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
+fun StatsScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        contentPadding = contentPadding, // Aplica o padding global
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Home, null) },
-            label = { Text("Início") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Book, null) },
-            label = { Text("Biblioteca") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
-        // ESTATÍSTICAS SELECIONADO
-        NavigationBarItem(
-            selected = true,
-            onClick = { },
-            icon = { Icon(Icons.Default.BarChart, null) },
-            label = { Text("Estatísticas") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = ZentGreenPrimary,
-                selectedTextColor = ZentGreenPrimary,
-                indicatorColor = ZentGreenLight
-            )
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Person, null) },
-            label = { Text("Perfil") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
+        // Removido: item { StatsTopBar() }
+
+        item { SummaryCardsRow() }
+        item { RetentionChartCard() }
+        item { HeatmapCard() }
+        item {
+            SubjectPerformanceCard()
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }
 

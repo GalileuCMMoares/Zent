@@ -41,64 +41,37 @@ val ZentGrayLight = Color(0xFFE5E7EB)
 val ZentRedError = Color(0xFFDC2626)
 
 @Composable
-fun ProfileScreen() {
-    Scaffold(
-        containerColor = ZentBackground,
-        bottomBar = { ProfileBottomNavigation() }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // 1. Topo (Logo + Criar)
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                ProfileTopBar()
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+fun ProfileScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        contentPadding = contentPadding, // Aplica padding global
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Removido: item { ProfileTopBar() }
 
-            // 2. Card do Usuário (Verde)
-            item {
-                UserProfileCard()
-                Spacer(modifier = Modifier.height(24.dp))
+        item {
+            UserProfileCard()
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        item {
+            PremiumCard()
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        item {
+            SectionTitle("Preferências")
+            SettingsGroupCard {
+                SettingsRow(Icons.Outlined.Notifications, "Notificações", "Lembretes de estudo", { SimpleSwitch() })
+                Divider(color = ZentBackground, thickness = 1.dp)
+                SettingsRow(Icons.Outlined.Nightlight, "Modo Escuro", "Tema visual", { SimpleSwitch() })
+                Divider(color = ZentBackground, thickness = 1.dp)
+                SettingsRow(Icons.Outlined.Language, "Idioma", "Português (BR)", { })
             }
-
-            // 3. Card Premium (Roxo/Cinza)
-            item {
-                PremiumCard()
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // 4. Preferências
-            item {
-                SectionTitle("Preferências")
-                SettingsGroupCard {
-                    SettingsRow(
-                        icon = Icons.Outlined.Notifications,
-                        title = "Notificações",
-                        subtitle = "Lembretes de estudo",
-                        trailing = { SimpleSwitch() }
-                    )
-                    Divider(color = ZentBackground, thickness = 1.dp)
-                    SettingsRow(
-                        icon = Icons.Outlined.Nightlight, // Modo Escuro
-                        title = "Modo Escuro",
-                        subtitle = "Tema visual",
-                        trailing = { SimpleSwitch() }
-                    )
-                    Divider(color = ZentBackground, thickness = 1.dp)
-                    SettingsRow(
-                        icon = Icons.Outlined.Language,
-                        title = "Idioma",
-                        subtitle = "Português (BR)",
-                        trailing = { /* Vazio ou seta */ }
-                    )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
             // 5. Configurações de Estudo
             item {
@@ -145,16 +118,14 @@ fun ProfileScreen() {
             }
 
             // 7. Rodapé
-            item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Zent v1.0.0", fontSize = 12.sp, color = ZentGrayText)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Feito com ", fontSize = 12.sp, color = ZentGrayText)
-                        Text("💚", fontSize = 10.sp)
-                        Text(" para estudantes", fontSize = 12.sp, color = ZentGrayText)
-                    }
+        item {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Zent v1.0.0", fontSize = 12.sp, color = ZentGrayText)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Feito com ", fontSize = 12.sp, color = ZentGrayText)
+                    Text("💚", fontSize = 10.sp)
+                    Text(" para estudantes", fontSize = 12.sp, color = ZentGrayText)
                 }
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -368,48 +339,6 @@ fun Modifier.scale(scale: Float) = this.then(
 )
 
 
-// --- BARRA DE NAVEGAÇÃO LOCAL (Fixa nesta tela) ---
-@Composable
-fun ProfileBottomNavigation() {
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
-    ) {
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Home, null) },
-            label = { Text("Início") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Book, null) },
-            label = { Text("Biblioteca") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.BarChart, null) },
-            label = { Text("Estatísticas") },
-            colors = NavigationBarItemDefaults.colors(unselectedIconColor = ZentGrayText, unselectedTextColor = ZentGrayText)
-        )
-        // PERFIL SELECIONADO
-        NavigationBarItem(
-            selected = true,
-            onClick = { },
-            icon = { Icon(Icons.Default.Person, null) },
-            label = { Text("Perfil") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = ZentGreenPrimary,
-                selectedTextColor = ZentGreenPrimary,
-                indicatorColor = ZentGreenLight
-            )
-        )
-    }
-}
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
