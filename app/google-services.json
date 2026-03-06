@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "54232929379",
+    "project_id": "zent-f4168",
+    "storage_bucket": "zent-f4168.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:54232929379:android:b22349a3766fb199b25456",
+        "android_client_info": {
+          "package_name": "com.example.zent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDI7gVmQErQ-kCgfp7oub6bNjfKBxQbXgc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
