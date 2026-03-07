@@ -29,15 +29,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +69,10 @@ import com.example.zent.presentation.ZentGrayText
 import com.example.zent.presentation.ZentGreenDarker
 import com.example.zent.presentation.ZentPurple
 import com.example.zent.presentation.ZentTextDark
+import com.example.zent.viewmodel.AuthEvent
+import com.example.zent.viewmodel.AuthState
+import com.example.zent.viewmodel.ZentViewModel
+import org.koin.androidx.compose.koinViewModel
 
 val ZentPurpleButton = Color(0xFFA69BBE) // Cor do botão Entrar
 val ZentInputBackground = Color(0xFFF3F4F6)
@@ -73,10 +81,24 @@ val ZentInputBackground = Color(0xFFF3F4F6)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit = {},
-    onNavigateToRegister: () -> Unit = {}
+    onNavigateToRegister: () -> Unit = {},
+    onNavigateToForgotPassword: () -> Unit = {},
+    viewModel: ZentViewModel = koinViewModel() // Injetando o ViewModel
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    // Observa o estado que vem do ViewModel
+    val authState by viewModel.authState.collectAsState()
+
+    // Se o estado for de sucesso, vai para a Home
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            if (event is AuthEvent.NavigateToHome) {
+                onLoginSuccess()
+            }
+        }
+    }
 
     Scaffold(
         containerColor = ZentBackground
@@ -85,17 +107,15 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState()), // Permite rolagem em telas pequenas
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(64.dp))
 
-            // 1. Cabeçalho (Logo + Títulos)
             HeaderSection()
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 2. Card Principal de Login
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -124,10 +144,12 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Campo de E-mail
                     ZentTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            viewModel.resetState() // Limpa erro ao digitar
+                        },
                         label = "Email",
                         placeholder = "seu@email.com",
                         icon = Icons.Outlined.Email,
@@ -136,10 +158,12 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Campo de Senha
                     ZentTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            viewModel.resetState()
+                        },
                         label = "Senha",
                         placeholder = "••••••••",
                         icon = Icons.Outlined.Lock,
@@ -148,34 +172,48 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // "Esqueceu a senha?"
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                         Text(
                             text = "Esqueceu a senha?",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = ZentGreenDarker,
-                            modifier = Modifier.clickable { /* Ação de recuperar senha */ }
+                            modifier = Modifier.clickable { onNavigateToForgotPassword() }
                         )
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // Mostra mensagem de erro, se houver
+                    if (authState is AuthState.Error) {
+                        Text(
+                            text = (authState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     // Botão Entrar
                     Button(
-                        onClick = onLoginSuccess,
+                        onClick = { viewModel.login(email, password) },
+                        enabled = authState !is AuthState.Loading, // Desativa se estiver carregando
                         colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
                     ) {
-                        Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Divisor "ou"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -192,22 +230,12 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Botões Sociais
-                    SocialLoginButton(
-                        text = "Continuar com Google",
-                        icon = Icons.Outlined.AccountCircle, // TODO: Trocar pela logo real do Google
-                        onClick = { }
-                    )
+                    SocialLoginButton(text = "Continuar com Google", icon = Icons.Outlined.AccountCircle, onClick = { })
                     Spacer(modifier = Modifier.height(12.dp))
-                    SocialLoginButton(
-                        text = "Continuar com Apple",
-                        icon = Icons.Outlined.PhoneIphone, // TODO: Trocar pela logo real da Apple
-                        onClick = { }
-                    )
+                    SocialLoginButton(text = "Continuar com Apple", icon = Icons.Outlined.PhoneIphone, onClick = { })
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Criar Conta
                     val annotatedText = buildAnnotatedString {
                         append("Não tem uma conta? ")
                         withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = ZentGreenDarker)) {
@@ -225,7 +253,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Rodapé Legal
             Text(
                 text = "Ao continuar, você concorda com nossos Termos de Uso e Política\nde Privacidade",
                 fontSize = 12.sp,

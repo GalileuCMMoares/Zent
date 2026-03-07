@@ -25,11 +25,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +53,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zent.viewmodel.AuthState
+import com.example.zent.viewmodel.ZentViewModel
+import org.koin.androidx.compose.koinViewModel
 
 // --- CORES ---
 val ZentBackground = Color(0xFFF9FAFB)
@@ -60,12 +68,21 @@ val ZentGreenDarker = Color(0xFF6B8A7A)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit = {},
-    onNavigateToLogin: () -> Unit = {}
+    onNavigateToLogin: () -> Unit = {},
+    viewModel: ZentViewModel = koinViewModel()
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+
+    val authState by viewModel.authState.collectAsState()
+
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Success) {
+            onRegisterSuccess()
+        }
+    }
 
     Scaffold(
         containerColor = ZentBackground
@@ -79,12 +96,10 @@ fun RegisterScreen(
         ) {
             Spacer(modifier = Modifier.height(48.dp))
 
-            // 1. Cabeçalho (Logo + Títulos)
             RegisterHeaderSection()
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 2. Card Principal de Cadastro
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,10 +128,12 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Campo de Nome
                     ZentTextField(
                         value = name,
-                        onValueChange = { name = it },
+                        onValueChange = {
+                            name = it
+                            viewModel.resetState()
+                        },
                         label = "Nome completo",
                         placeholder = "Seu nome",
                         icon = Icons.Outlined.Person
@@ -124,10 +141,12 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Campo de E-mail
                     ZentTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            viewModel.resetState()
+                        },
                         label = "Email",
                         placeholder = "seu@email.com",
                         icon = Icons.Outlined.Email,
@@ -136,10 +155,12 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Campo de Senha
                     ZentTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            viewModel.resetState()
+                        },
                         label = "Senha",
                         placeholder = "Mínimo 6 caracteres",
                         icon = Icons.Outlined.Lock,
@@ -148,10 +169,12 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Campo de Confirmar Senha
                     ZentTextField(
                         value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
+                        onValueChange = {
+                            confirmPassword = it
+                            viewModel.resetState()
+                        },
                         label = "Confirmar senha",
                         placeholder = "Digite a senha novamente",
                         icon = Icons.Outlined.Lock,
@@ -160,16 +183,30 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Botão Criar Conta
+                    if (authState is AuthState.Error) {
+                        Text(
+                            text = (authState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     Button(
-                        onClick = onRegisterSuccess,
+                        onClick = { viewModel.register(name, email, password, confirmPassword) },
+                        enabled = authState !is AuthState.Loading,
                         colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
                     ) {
-                        Text("Criar conta", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Criar conta", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -179,19 +216,19 @@ fun RegisterScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Divider(modifier = Modifier.weight(1f), color = ZentGrayLight)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = ZentGrayLight)
                         Text(
                             text = "ou",
                             modifier = Modifier.padding(horizontal = 16.dp),
                             color = ZentGrayText,
                             fontSize = 14.sp
                         )
-                        Divider(modifier = Modifier.weight(1f), color = ZentGrayLight)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = ZentGrayLight)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Botões Sociais (Lembrando de substituir pelo ícone real SVG depois)
+                    // Botões Sociais
                     SocialLoginButton(
                         text = "Continuar com Google",
                         icon = Icons.Outlined.AccountCircle,

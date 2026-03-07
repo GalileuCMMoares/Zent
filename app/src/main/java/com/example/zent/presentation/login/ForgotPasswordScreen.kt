@@ -20,10 +20,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,13 +43,20 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zent.viewmodel.AuthState
+import com.example.zent.viewmodel.ZentViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ForgotPasswordScreen(
     onBackToLoginClick: () -> Unit = {},
-    onSendRecoveryEmail: (String) -> Unit = {}
+    viewModel: ZentViewModel = koinViewModel()
 ) {
     var email by remember { mutableStateOf("") }
+    val authState by viewModel.authState.collectAsState()
+
+    // Controlo local para mostrar mensagem de sucesso, já que o ViewModel volta para Idle
+    var showSuccessMessage by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = ZentBackground
@@ -60,7 +70,7 @@ fun ForgotPasswordScreen(
         ) {
             Spacer(modifier = Modifier.height(48.dp))
 
-            // 1. Cabeçalho (Logo + Títulos)
+            // 1. Cabeçalho (Logo + Títulos) - Assumindo que HeaderSection() está acessível
             HeaderSection()
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -74,7 +84,6 @@ fun ForgotPasswordScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                // ATENÇÃO: Alinhamento Start (Esquerda) conforme o Figma
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.Start
@@ -122,7 +131,11 @@ fun ForgotPasswordScreen(
                     // Campo de E-mail
                     ZentTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            viewModel.resetState()
+                            showSuccessMessage = false
+                        },
                         label = "Email",
                         placeholder = "seu@email.com",
                         icon = Icons.Outlined.Email,
@@ -131,16 +144,41 @@ fun ForgotPasswordScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    if (authState is AuthState.Error) {
+                        Text(
+                            text = (authState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    } else if (showSuccessMessage) {
+                        Text(
+                            text = "Link de recuperação enviado! Verifique a sua caixa de entrada.",
+                            color = ZentGreenDarker,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+
                     // Botão Enviar Link
                     Button(
-                        onClick = { onSendRecoveryEmail(email) },
+                        onClick = {
+                            viewModel.sendPasswordReset(email)
+                            showSuccessMessage = true
+                        },
+                        enabled = authState !is AuthState.Loading,
                         colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
                     ) {
-                        Text("Enviar Link de Recuperação", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Enviar Link de Recuperação", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -188,5 +226,6 @@ fun ForgotPasswordScreen(
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
 fun PreviewForgotPasswordScreen() {
-    ForgotPasswordScreen()
+    ForgotPasswordScreen(
+    )
 }
