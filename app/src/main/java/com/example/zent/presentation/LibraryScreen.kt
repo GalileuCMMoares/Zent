@@ -8,98 +8,80 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zent.domain.model.Deck
+import com.example.zent.viewmodel.ZentViewModel
+import org.koin.androidx.compose.koinViewModel
 
-// --- REUTILIZANDO CORES (Mesmas da Home) --- // Verde Sálvia
-val ZentGreenDarker = Color(0xFF6B8A7A)  // Um pouco mais escuro para botões sólidos
-val ZentGrayLight = Color(0xFFE5E7EB)    // Cinza bem claro para barras de fundo
+val ZentGreenDarker = Color(0xFF6B8A7A)
+val ZentGrayLight = Color(0xFFE5E7EB)
 
 @Composable
 fun LibraryScreen(
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    onNavigateToCreateDeck: () -> Unit = {}, // <-- Ação do botão Novo
+    viewModel: ZentViewModel = koinViewModel()
 ) {
+    // Busca a lista real de matérias do banco de dados (Room + Firebase)
+    val decks by viewModel.decks.collectAsState()
+
+    // Cálculos para as estatísticas (Temporário enquanto não temos as cartas)
+    val totalCards = decks.sumOf { it.totalCards }
+    val toReview = decks.sumOf { it.toReviewCount }
+    val mastered = if (totalCards > 0) totalCards - toReview else 0
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
-        // APLICA O PADDING DO MAIN SCREEN DIRETO NA LISTA
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Removido: item { LibraryTopBar() }
-
         // Cabeçalho "Biblioteca"
         item {
-            // Pequeno ajuste visual se necessário
-            LibraryHeaderSection()
+            LibraryHeaderSection(
+                deckCount = decks.size,
+                onCreateClick = onNavigateToCreateDeck // Passa a ação para o botão
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         item {
-            LibraryStatsRow()
+            LibraryStatsRow(totalCards = totalCards, masteredCards = mastered)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        items(getLibraryMockData()) { deck ->
-            DeckCardItem(deck)
+        // Se não tiver matérias, mostra um aviso
+        if (decks.isEmpty()) {
+            item {
+                EmptyLibraryMessage()
+            }
+        } else {
+            // Lista os Decks reais!
+            items(decks) { deck ->
+                DeckCardItem(deck)
+            }
         }
-
-
     }
 }
 
 // --- COMPONENTES DA TELA ---
 
 @Composable
-fun LibraryTopBar() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Zent",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = ZentPurple
-        )
-        // Botão "Criar" (Outline)
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = Color.White,
-            border = androidx.compose.foundation.BorderStroke(1.dp, ZentGrayLight),
-            onClick = { /* Ação */ }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp), tint = ZentTextDark)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Criar", fontWeight = FontWeight.SemiBold, color = ZentTextDark)
-            }
-        }
-    }
-}
-
-@Composable
-fun LibraryHeaderSection() {
+fun LibraryHeaderSection(deckCount: Int, onCreateClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -113,15 +95,15 @@ fun LibraryHeaderSection() {
                 color = ZentTextDark
             )
             Text(
-                text = "5 baralhos",
+                text = "$deckCount baralhos",
                 fontSize = 14.sp,
                 color = ZentGrayText
             )
         }
 
-        // Botão "+ Novo" (Sólido Verde)
+        // Botão "+ Novo"
         Button(
-            onClick = { /* Novo Baralho */ },
+            onClick = onCreateClick, // <-- Chama a função de ir para a tela CreateDeck
             colors = ButtonDefaults.buttonColors(containerColor = ZentGreenDarker),
             shape = RoundedCornerShape(50),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
@@ -135,25 +117,23 @@ fun LibraryHeaderSection() {
 }
 
 @Composable
-fun LibraryStatsRow() {
+fun LibraryStatsRow(totalCards: Int, masteredCards: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Card Esquerdo (Total de Cartas)
         LibraryMiniStat(
             modifier = Modifier.weight(1f),
             icon = Icons.Outlined.Book,
-            value = "225",
+            value = totalCards.toString(),
             label = "Total de Cartas",
             iconBg = ZentGreenLight,
             iconColor = ZentGreenPrimary
         )
-        // Card Direito (Dominadas)
         LibraryMiniStat(
             modifier = Modifier.weight(1f),
             icon = Icons.Outlined.TrendingUp,
-            value = "143",
+            value = masteredCards.toString(),
             label = "Dominadas",
             iconBg = ZentPurpleLight,
             iconColor = ZentPurple
@@ -174,7 +154,7 @@ fun LibraryMiniStat(
         modifier = modifier.height(80.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(0.dp) // Flat, apenas border se quiser
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -199,7 +179,11 @@ fun LibraryMiniStat(
 }
 
 @Composable
-fun DeckCardItem(deck: DeckMock) {
+fun DeckCardItem(deck: Deck) {
+    // Converte o código Hexadecimal em uma cor do Compose
+    val mainColor = parseHexColor(deck.colorHex)
+    val bgColor = mainColor.copy(alpha = 0.2f)
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -208,30 +192,27 @@ fun DeckCardItem(deck: DeckMock) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // Linha Superior (Ícone + Textos + Menu)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Ícone do Baralho
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp)) // Um pouco quadrado
-                        .background(deck.colorBg),
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(bgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Outlined.Book,
                         contentDescription = null,
-                        tint = deck.colorMain,
+                        tint = mainColor,
                         modifier = Modifier.size(24.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Títulos
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = deck.title,
@@ -241,13 +222,13 @@ fun DeckCardItem(deck: DeckMock) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${deck.cardCount} cartas  •  ${deck.lastStudied}",
+                        text = "${deck.totalCards} assuntos  •  ${deck.description.ifEmpty { "Sem descrição" }}",
                         fontSize = 12.sp,
-                        color = ZentGrayText
+                        color = ZentGrayText,
+                        maxLines = 1
                     )
                 }
 
-                // Menu (3 pontinhos)
                 Icon(
                     Icons.Default.MoreVert,
                     contentDescription = "Opções",
@@ -258,35 +239,37 @@ fun DeckCardItem(deck: DeckMock) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Barra de Progresso Customizada
-            // Calcula progresso (ex: 32 de 45)
-            val progress = deck.masteredCount.toFloat() / deck.cardCount.toFloat()
+            // Barra de Progresso
+            val progress = if (deck.totalCards > 0) {
+                (deck.totalCards - deck.toReviewCount).toFloat() / deck.totalCards.toFloat()
+            } else {
+                0f
+            }
 
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
-                    .clip(RoundedCornerShape(50)), // Bordas redondas na barra
-                color = ZentGreenPrimary,
+                    .clip(RoundedCornerShape(50)),
+                color = mainColor,
                 trackColor = ZentGrayLight,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Rodapé (Dominadas vs Para Revisar)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                val dominadas = if(deck.totalCards > 0) deck.totalCards - deck.toReviewCount else 0
                 Text(
-                    text = "${deck.masteredCount} dominadas",
+                    text = "$dominadas dominadas",
                     fontSize = 12.sp,
                     color = ZentGrayText
                 )
 
-                // Destaque se tiver revisão
-                val reviewColor = if (deck.toReviewCount > 0) ZentGreenPrimary else ZentGrayText
+                val reviewColor = if (deck.toReviewCount > 0) mainColor else ZentGrayText
                 val reviewWeight = if (deck.toReviewCount > 0) FontWeight.Bold else FontWeight.Normal
 
                 Text(
@@ -299,28 +282,27 @@ fun DeckCardItem(deck: DeckMock) {
         }
     }
 }
-// --- DADOS MOCK (Baseados na imagem) ---
-data class DeckMock(
-    val title: String,
-    val cardCount: Int,
-    val lastStudied: String,
-    val masteredCount: Int,
-    val toReviewCount: Int,
-    val colorMain: Color,
-    val colorBg: Color
-)
 
-fun getLibraryMockData() = listOf(
-    DeckMock("História do Brasil", 45, "Hoje", 32, 8, ZentGreenPrimary, ZentGreenLight),
-    DeckMock("Inglês - Vocabulário", 67, "Hoje", 48, 5, ZentGreenPrimary, ZentGreenLight),
-    DeckMock("Kotlin Básico", 23, "Ontem", 15, 2, ZentPurple, ZentPurpleLight),
-    DeckMock("Biologia - Células", 38, "3 dias atrás", 20, 0, ZentGreenPrimary, ZentGreenLight),
-    DeckMock("Matemática - Álgebra", 52, "2 dias atrás", 28, 12, ZentGreenPrimary, ZentGreenLight),
-)
-
-// --- PREVIEWS ---
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-fun PreviewLibraryScreen() {
-    LibraryScreen()
+fun EmptyLibraryMessage() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(Icons.Outlined.Book, contentDescription = null, modifier = Modifier.size(64.dp), tint = ZentGrayLight)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Sua biblioteca está vazia.", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ZentTextDark)
+        Text("Clique em '+ Novo' para começar a estudar!", fontSize = 14.sp, color = ZentGrayText)
+    }
+}
+
+// Função utilitária para transformar a string HEX salva no banco em cor
+fun parseHexColor(hex: String): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (e: Exception) {
+        ZentGreenPrimary // Cor de fallback caso a string esteja errada
+    }
 }

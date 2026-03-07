@@ -8,7 +8,9 @@ data class DeckEntity(
     @PrimaryKey val id: String,
     val userId: String,
     val title: String,
+    val description: String,
     val colorHex: String,
-    val isDeleted: Boolean, // Importante para o Offline-First
-    val updatedAt: Long
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isDeleted: Boolean = false
 )

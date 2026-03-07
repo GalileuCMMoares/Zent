@@ -93,9 +93,12 @@ fun LoginScreen(
 
     // Se o estado for de sucesso, vai para a Home
     LaunchedEffect(Unit) {
+        viewModel.checkIfUserIsLoggedIn()
+
+        // 2. Continua escutando os eventos normalmente...
         viewModel.events.collect { event ->
             if (event is AuthEvent.NavigateToHome) {
-                onLoginSuccess()
+                onLoginSuccess() // ou onRegisterSuccess()
             }
         }
     }

@@ -2,8 +2,10 @@ package com.example.zent.di
 
 import androidx.room.Room
 import com.example.zent.data.local.ZentDatabase
+import com.example.zent.data.repository.StudyRepositoryImpl
 import com.example.zent.domain.repository.AuthRepository
 import com.example.zent.domain.repository.AuthRepositoryImpl
+import com.example.zent.domain.repository.StudyRepository
 import com.example.zent.domain.usecase.GetCurrentUserUseCase
 import com.example.zent.domain.usecase.LoginUseCase
 import com.example.zent.domain.usecase.LogoutUseCase
@@ -27,25 +29,28 @@ object AppModules {
                 androidContext(),
                 ZentDatabase::class.java,
                 "zent_database"
-            ).build()
+            )
+                .fallbackToDestructiveMigration() // Evita crashes se mudarmos as tabelas durante o dev
+                .build()
         }
         single { get<ZentDatabase>().deckDao() }
-        single { get<ZentDatabase>().flashcardDao() }
+        single { get<ZentDatabase>().studyDao() } // NOVO: DAO de Assuntos e Quizzes
 
         // --- Firebase (Nuvem) ---
         single { FirebaseAuth.getInstance() }
         single { FirebaseFirestore.getInstance() }
 
         // --- Repositórios ---
-        // O Koin entende que quando alguém pedir a interface AuthRepository,
-        // ele deve entregar a implementação AuthRepositoryImpl (que precisa do FirebaseAuth)
         single<AuthRepository> { AuthRepositoryImpl(get()) }
+
+        // NOVO: Repositório de Estudos (Salva no Room e no Firestore)
+        single<StudyRepository> {
+            StudyRepositoryImpl(deckDao = get(), firestore = get(), auth = get(), studyDao = get())
+        }
     }
 
     // 2. Módulo de DOMÍNIO (Regras de Negócio / Casos de Uso)
     val domainModule = module {
-        // factory { SpacedRepetitionCalculator() } // Mantive o seu exemplo!
-
         // --- Autenticação ---
         factory { LoginUseCase(get()) }
         factory { RegisterUseCase(get()) }
@@ -53,7 +58,7 @@ object AppModules {
         factory { GetCurrentUserUseCase(get()) }
         factory { LogoutUseCase(get()) }
 
-        // Wrapper de Casos de Uso para facilitar a vida do ViewModel
+        // Wrapper de Casos de Uso
         factory {
             AuthUseCases(
                 login = get(),
@@ -67,7 +72,13 @@ object AppModules {
 
     // 3. Módulo de APRESENTAÇÃO (ViewModels)
     val presentationModule = module {
-        viewModel { ZentViewModel(authUseCases = get()) }
+        // ATUALIZADO: O ViewModel agora recebe os Casos de Uso de Auth E o Repositório de Estudos!
+        viewModel {
+            ZentViewModel(
+                authUseCases = get(),
+                studyRepository = get()
+            )
+        }
     }
 
     // A lista final que será carregada na Application
