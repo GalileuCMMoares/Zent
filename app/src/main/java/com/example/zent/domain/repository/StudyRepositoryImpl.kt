@@ -4,6 +4,7 @@ import com.example.zent.data.local.DeckEntity
 import com.example.zent.data.local.dao.DeckDao
 import com.example.zent.data.local.dao.StudyDao // Import do novo DAO
 import com.example.zent.data.mapper.toDomain
+import com.example.zent.data.mapper.toEntity
 import com.example.zent.data.mapper.toRemote
 import com.example.zent.domain.model.Deck
 import com.example.zent.domain.model.Topic
@@ -16,7 +17,7 @@ import kotlinx.coroutines.tasks.await
 
 class StudyRepositoryImpl(
     private val deckDao: DeckDao,
-    private val studyDao: StudyDao, // <-- NOVO: Adicionado aqui!
+    private val studyDao: StudyDao,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) : StudyRepository {
@@ -59,17 +60,41 @@ class StudyRepositoryImpl(
         }
     }
 
-    // NOVO: Busca os detalhes da matéria
     override fun getDeckById(deckId: String): Flow<Deck?> {
         return deckDao.observeDeckById(deckId).map { entity ->
             entity?.toDomain()
         }
     }
 
-    // NOVO: Busca os assuntos (topics) atrelados àquela matéria
     override fun getTopicsByDeckId(deckId: String): Flow<List<Topic>> {
         return studyDao.getTopicsByDeck(deckId).map { entities ->
             entities.map { it.toDomain() }
+        }
+    }
+
+    // NOVO: Salva o assunto (Topic) localmente e na nuvem
+    override suspend fun createTopic(topic: Topic): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid ?: throw Exception("Usuário não está logado")
+
+            // 1. Salva no SQLite (Room)
+            val topicEntity = topic.toEntity()
+            studyDao.insertTopic(topicEntity)
+
+            // 2. Salva no Firebase
+            val topicRemote = topic.toRemote()
+            firestore.collection("users")
+                .document(userId)
+                .collection("decks")
+                .document(topic.deckId)
+                .collection("topics") // Subpasta de assuntos dentro da matéria
+                .document(topic.id)
+                .set(topicRemote)
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

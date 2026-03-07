@@ -8,7 +8,9 @@ interface StudyRepository {
     suspend fun createDeck(deck: Deck): Result<Unit>
     fun getDecks(): Flow<List<Deck>>
 
-    // NOVO: Funções para a tela de Detalhes da Matéria
     fun getDeckById(deckId: String): Flow<Deck?>
     fun getTopicsByDeckId(deckId: String): Flow<List<Topic>>
+
+    // NOVO: Função para salvar o Assunto
+    suspend fun createTopic(topic: Topic): Result<Unit>
 }

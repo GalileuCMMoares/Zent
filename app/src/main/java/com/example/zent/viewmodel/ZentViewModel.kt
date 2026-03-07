@@ -7,6 +7,7 @@ import com.example.zent.domain.model.Topic // Import necessário
 import com.example.zent.domain.repository.StudyRepository
 import com.example.zent.domain.usecase.auth.AuthUseCases
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,53 @@ class ZentViewModel(
     }
 
     // ==========================================
-    // RESTANTE DO CÓDIGO
+    // FUNÇÕES DE ASSUNTOS (TOPICS) E IA
+    // ==========================================
+
+    fun generateTopicWithIA(deckId: String, name: String, description: String, material: String) {
+        // Mostramos o loading (Passo 3 usa isso)
+        _authState.value = AuthState.Loading
+
+        viewModelScope.launch {
+            try {
+                // Simula a IA processando o material por 3 segundos
+                delay(3000)
+
+                val newTopic = Topic(
+                    id = UUID.randomUUID().toString(),
+                    deckId = deckId,
+                    title = name,
+                    sourceMaterial = description, // Idealmente guardaremos o material aqui e a IA cria as Questions depois
+                    nextReviewDate = 0L, // 0 = Hoje
+                    intervalDays = 0,
+                    easeFactor = 2.5f,
+                    repetitions = 0
+                )
+
+                val result = studyRepository.createTopic(newTopic)
+
+                result.fold(
+                    onSuccess = {
+                        _authState.value = AuthState.Idle
+                        eventChannel.send(AuthEvent.ShowToast("Assunto e cartas gerados com sucesso!"))
+                        eventChannel.send(AuthEvent.NavigateBack)
+                    },
+                    onFailure = { e ->
+                        _authState.value = AuthState.Idle
+                        eventChannel.send(AuthEvent.ShowToast("Assunto salvo localmente. (Erro nuvem: ${e.message})"))
+                        eventChannel.send(AuthEvent.NavigateBack)
+                    }
+                )
+            } catch (e: Exception) {
+                _authState.value = AuthState.Idle
+                eventChannel.send(AuthEvent.ShowToast("Erro na IA: ${e.message}"))
+                eventChannel.send(AuthEvent.NavigateBack)
+            }
+        }
+    }
+
+    // ==========================================
+    // RESTANTE DO CÓDIGO (Auth & Decks)
     // ==========================================
 
     fun getCurrentUser() = authUseCases.getCurrentUser()

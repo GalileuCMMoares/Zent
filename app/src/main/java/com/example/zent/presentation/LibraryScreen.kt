@@ -1,6 +1,7 @@
 package com.example.zent.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,13 +33,12 @@ val ZentGrayLight = Color(0xFFE5E7EB)
 @Composable
 fun LibraryScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    onNavigateToCreateDeck: () -> Unit = {}, // <-- Ação do botão Novo
+    onNavigateToCreateDeck: () -> Unit = {},
+    onNavigateToDeckDetails: (String) -> Unit = {}, // Ação de clicar na matéria
     viewModel: ZentViewModel = koinViewModel()
 ) {
-    // Busca a lista real de matérias do banco de dados (Room + Firebase)
     val decks by viewModel.decks.collectAsState()
 
-    // Cálculos para as estatísticas (Temporário enquanto não temos as cartas)
     val totalCards = decks.sumOf { it.totalCards }
     val toReview = decks.sumOf { it.toReviewCount }
     val mastered = if (totalCards > 0) totalCards - toReview else 0
@@ -50,11 +50,10 @@ fun LibraryScreen(
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Cabeçalho "Biblioteca"
         item {
             LibraryHeaderSection(
                 deckCount = decks.size,
-                onCreateClick = onNavigateToCreateDeck // Passa a ação para o botão
+                onCreateClick = onNavigateToCreateDeck
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -64,21 +63,20 @@ fun LibraryScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Se não tiver matérias, mostra um aviso
         if (decks.isEmpty()) {
             item {
                 EmptyLibraryMessage()
             }
         } else {
-            // Lista os Decks reais!
             items(decks) { deck ->
-                DeckCardItem(deck)
+                DeckCardItem(
+                    deck = deck,
+                    onClick = { onNavigateToDeckDetails(deck.id) }
+                )
             }
         }
     }
 }
-
-// --- COMPONENTES DA TELA ---
 
 @Composable
 fun LibraryHeaderSection(deckCount: Int, onCreateClick: () -> Unit) {
@@ -101,9 +99,8 @@ fun LibraryHeaderSection(deckCount: Int, onCreateClick: () -> Unit) {
             )
         }
 
-        // Botão "+ Novo"
         Button(
-            onClick = onCreateClick, // <-- Chama a função de ir para a tela CreateDeck
+            onClick = onCreateClick,
             colors = ButtonDefaults.buttonColors(containerColor = ZentGreenDarker),
             shape = RoundedCornerShape(50),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
@@ -179,15 +176,16 @@ fun LibraryMiniStat(
 }
 
 @Composable
-fun DeckCardItem(deck: Deck) {
-    // Converte o código Hexadecimal em uma cor do Compose
+fun DeckCardItem(deck: Deck, onClick: () -> Unit) {
     val mainColor = parseHexColor(deck.colorHex)
     val bgColor = mainColor.copy(alpha = 0.2f)
 
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() } // Torna o cartão clicável
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -239,7 +237,6 @@ fun DeckCardItem(deck: Deck) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Barra de Progresso
             val progress = if (deck.totalCards > 0) {
                 (deck.totalCards - deck.toReviewCount).toFloat() / deck.totalCards.toFloat()
             } else {
@@ -298,11 +295,10 @@ fun EmptyLibraryMessage() {
     }
 }
 
-// Função utilitária para transformar a string HEX salva no banco em cor
 fun parseHexColor(hex: String): Color {
     return try {
         Color(android.graphics.Color.parseColor(hex))
     } catch (e: Exception) {
-        ZentGreenPrimary // Cor de fallback caso a string esteja errada
+        ZentGreenPrimary
     }
 }

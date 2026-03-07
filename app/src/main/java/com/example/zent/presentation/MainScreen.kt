@@ -16,10 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.zent.presentation.CreateDeckScreen
 import com.example.zent.presentation.HomeScreen
 import com.example.zent.presentation.LibraryScreen
@@ -46,7 +48,6 @@ fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // LÓGICA DE ESTADO DAS BARRAS
     val authScreens = listOf(ROUTE_LOGIN, ROUTE_REGISTER, ROUTE_FORGOT_PASSWORD)
     val isAuthScreen = currentRoute in authScreens
 
@@ -58,35 +59,30 @@ fun MainScreen() {
     )
     val isMainScreen = currentRoute in mainScreens
 
-    // Identifica se estamos na tela de criar matéria
-    val isCreateScreen = currentRoute == Screen.CreateQuiz.route
+    // Identifica telas que tem a própria barra de topo ou não devem exibir a bottom bar
+    val isCustomTopBarScreen = currentRoute == Screen.CreateQuiz.route ||
+            currentRoute?.startsWith("deck_details") == true ||
+            currentRoute?.startsWith("create_topic") == true // <-- Adicionado
 
-    // A BottomBar só aparece nas telas principais do app (Home, Library, Stats, Profile)
     val showBottomBar = isMainScreen
-
-    // A TopBar Global aparece nas telas principais, mas NÃO na Autenticação e NÃO na de Criação (pois ela tem a própria)
-    val showTopBar = !isAuthScreen && !isCreateScreen
+    val showTopBar = !isAuthScreen && !isCustomTopBarScreen
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Ajuste de Padding:
-        // Na Autenticação e Criação, o padding global é 0. Nas outras telas, as barras ocupam espaço.
         val topPadding = if (showTopBar) 110.dp else 0.dp
         val bottomPadding = if (showBottomBar) 100.dp else 0.dp
 
         val contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
 
-        // 1. CONTEÚDO
         NavHost(
             navController = navController,
-            startDestination = ROUTE_LOGIN, // O app começa agora pelo Login!
+            startDestination = ROUTE_LOGIN,
             modifier = Modifier.fillMaxSize()
         ) {
             // --- TELAS DE AUTENTICAÇÃO ---
             composable(ROUTE_LOGIN) {
                 LoginScreen(
                     onLoginSuccess = {
-                        // Navega para a Home
                         navController.navigate(Screen.Home.route) {
                             popUpTo(ROUTE_LOGIN) { inclusive = true }
                         }
@@ -114,31 +110,32 @@ fun MainScreen() {
             }
 
             composable(ROUTE_FORGOT_PASSWORD) {
-                ForgotPasswordScreen(
-                    onBackToLoginClick = {
-                        navController.popBackStack()
-                    }
-                )
+                ForgotPasswordScreen(onBackToLoginClick = { navController.popBackStack() })
             }
 
             // --- TELAS DO APP (PÓS-LOGIN) ---
             composable(Screen.Home.route) { HomeScreen(contentPadding) }
+
             composable(Screen.Library.route) {
                 LibraryScreen(
                     contentPadding = contentPadding,
                     onNavigateToCreateDeck = {
-                        navController.navigate(Screen.CreateQuiz.route) // Navega para a tela de nova matéria!
+                        navController.navigate(Screen.CreateQuiz.route)
+                    },
+                    onNavigateToDeckDetails = { deckId ->
+                        navController.navigate("deck_details/$deckId")
                     }
                 )
             }
+
             composable(Screen.Stats.route) { StatsScreen(contentPadding) }
+
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     contentPadding = contentPadding,
                     onLogoutSuccess = {
-                        // Volta para a tela de login e limpa o histórico
                         navController.navigate(ROUTE_LOGIN) {
-                            popUpTo(0) { inclusive = true } // Limpa toda a pilha de navegação
+                            popUpTo(0) { inclusive = true }
                         }
                     }
                 )
@@ -146,15 +143,38 @@ fun MainScreen() {
 
             // --- TELA DE CRIAR MATÉRIA ---
             composable(Screen.CreateQuiz.route) {
-                CreateDeckScreen(
-                    onBackClick = {
-                        navController.popBackStack() // Volta para a tela anterior
+                CreateDeckScreen(onBackClick = { navController.popBackStack() })
+            }
+
+            // --- TELA DE DETALHES DA MATÉRIA ---
+            composable(
+                route = "deck_details/{deckId}",
+                arguments = listOf(navArgument("deckId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deckId = backStackEntry.arguments?.getString("deckId") ?: ""
+                DeckDetailsScreen(
+                    deckId = deckId,
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToCreateTopic = { id ->
+                        navController.navigate("create_topic/$id") // <-- Ativa o botão Novo Assunto!
                     }
+                )
+            }
+
+            // --- NOVO: TELA DE CRIAR ASSUNTO ---
+            composable(
+                route = "create_topic/{deckId}",
+                arguments = listOf(navArgument("deckId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deckId = backStackEntry.arguments?.getString("deckId") ?: ""
+                CreateTopicScreen(
+                    deckId = deckId,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
         }
 
-        // 2. TOP BAR ÚNICA GLOBLAL (Condicional)
+        // TOP BAR GLOBLAL
         if (showTopBar) {
             ZentTopBar(
                 modifier = Modifier.align(Alignment.TopCenter),
@@ -169,7 +189,7 @@ fun MainScreen() {
             )
         }
 
-        // 3. BOTTOM BAR (Condicional)
+        // BOTTOM BAR GLOBLAL
         if (showBottomBar) {
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {

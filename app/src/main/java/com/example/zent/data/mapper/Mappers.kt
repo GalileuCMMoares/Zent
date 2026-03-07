@@ -19,9 +19,9 @@ fun DeckRemote.toEntity(): DeckEntity {
         id = this.id,
         userId = this.userId,
         title = this.title,
-        description = this.description, // Campo novo!
+        description = this.description,
         colorHex = this.colorHex,
-        createdAt = this.createdAt,     // Campo novo!
+        createdAt = this.createdAt,
         updatedAt = this.updatedAt,
         isDeleted = this.isDeleted
     )
@@ -46,7 +46,7 @@ fun DeckEntity.toDomain(totalCards: Int = 0, toReviewCount: Int = 0): Deck {
         title = this.title,
         description = this.description,
         colorHex = this.colorHex,
-        totalCards = totalCards, // Pode ser total de tópicos ou total de cartas
+        totalCards = totalCards,
         toReviewCount = toReviewCount
     )
 }
@@ -100,6 +100,40 @@ fun TopicEntity.toDomain(): Topic {
     )
 }
 
+// NOVO: Do Domínio (Tela) para o Banco Local (SQLite)
+fun Topic.toEntity(): TopicEntity {
+    return TopicEntity(
+        id = this.id,
+        deckId = this.deckId,
+        title = this.title,
+        sourceMaterial = this.sourceMaterial,
+        nextReviewDate = this.nextReviewDate,
+        intervalDays = this.intervalDays,
+        easeFactor = this.easeFactor,
+        repetitions = this.repetitions,
+        createdAt = System.currentTimeMillis(), // Carimbo de tempo de criação
+        updatedAt = System.currentTimeMillis(),
+        isDeleted = false
+    )
+}
+
+// NOVO: Do Domínio (Tela) para a Nuvem (Firebase)
+fun Topic.toRemote(): TopicRemote {
+    return TopicRemote(
+        id = this.id,
+        deckId = this.deckId,
+        title = this.title,
+        sourceMaterial = this.sourceMaterial,
+        nextReviewDate = this.nextReviewDate,
+        intervalDays = this.intervalDays,
+        easeFactor = this.easeFactor,
+        repetitions = this.repetitions,
+        createdAt = System.currentTimeMillis(),
+        updatedAt = System.currentTimeMillis(),
+        isDeleted = false
+    )
+}
+
 // ==========================================
 // QUESTION (QUESTÕES DA IA) MAPPERS
 // ==========================================
@@ -133,5 +167,29 @@ fun QuestionEntity.toDomain(): Question {
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
         options = this.options
+    )
+}
+
+// NOVO: Do Domínio (Tela) para o Banco Local (SQLite)
+fun Question.toEntity(): QuestionEntity {
+    return QuestionEntity(
+        id = this.id,
+        topicId = this.topicId,
+        questionText = this.questionText,
+        correctAnswer = this.correctAnswer,
+        options = this.options,
+        isDeleted = false
+    )
+}
+
+// NOVO: Do Domínio (Tela) para a Nuvem (Firebase)
+fun Question.toRemote(): QuestionRemote {
+    return QuestionRemote(
+        id = this.id,
+        topicId = this.topicId,
+        questionText = this.questionText,
+        correctAnswer = this.correctAnswer,
+        options = this.options,
+        isDeleted = false
     )
 }
