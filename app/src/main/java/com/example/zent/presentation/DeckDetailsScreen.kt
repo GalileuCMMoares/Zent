@@ -2,6 +2,7 @@ package com.zent.app.presentation
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,14 +71,14 @@ fun DeckDetailsScreen(
     deckId: String,
     onBackClick: () -> Unit,
     onNavigateToCreateTopic: (String) -> Unit = {},
+    onNavigateToTopicDetails: (String) -> Unit = {}, // NOVO: Para clicar no assunto!
     viewModel: ZentViewModel = koinViewModel()
 ) {
-    LaunchedEffect(deckId) {
-        viewModel.loadDeckDetails(deckId)
-    }
+    LaunchedEffect(deckId) { viewModel.loadDeckDetails(deckId) }
 
     val deck by viewModel.selectedDeck.collectAsState()
     val topics by viewModel.selectedDeckTopics.collectAsState()
+    val allQuestions by viewModel.selectedDeckQuestions.collectAsState() // Mágica dos dados reais!
 
     if (deck == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -89,8 +90,9 @@ fun DeckDetailsScreen(
     val mainColor = parseHexColor(deck!!.colorHex)
     val bgColor = mainColor.copy(alpha = 0.15f)
 
+    // Estatísticas Reais
     val totalTopics = topics.size
-    val totalCards = totalTopics * 10
+    val totalCards = allQuestions.size
     val masteredTopics = topics.count { it.intervalDays > 5 }
     val todayReviews = topics.count { isReviewTodayOrPast(it.nextReviewDate) }
 
@@ -101,9 +103,7 @@ fun DeckDetailsScreen(
             TopAppBar(
                 title = { Text("Zent", fontWeight = FontWeight.Bold, color = ZentPurpleButton, fontSize = 24.sp) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = ZentTextDark)
-                    }
+                    IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = ZentTextDark) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = ZentBackground)
             )
@@ -111,59 +111,35 @@ fun DeckDetailsScreen(
         containerColor = ZentBackground
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
+            item { DeckHeaderCard(deck = deck!!, mainColor = mainColor, bgColor = bgColor, progress = overallProgress) }
+            item { StatsGrid(topicsCount = totalTopics, cardsCount = totalCards, masteredCount = masteredTopics, todayCount = todayReviews) }
+            item { ActionButtons(mainColor = mainColor, onCreateTopicClick = { onNavigateToCreateTopic(deckId) }, hasReviewsToday = todayReviews > 0) }
 
             item {
-                DeckHeaderCard(deck = deck!!, mainColor = mainColor, bgColor = bgColor, progress = overallProgress)
-            }
-
-            item {
-                StatsGrid(
-                    topicsCount = totalTopics,
-                    cardsCount = totalCards,
-                    masteredCount = masteredTopics,
-                    todayCount = todayReviews
-                )
-            }
-
-            item {
-                ActionButtons(
-                    mainColor = mainColor,
-                    onCreateTopicClick = { onNavigateToCreateTopic(deckId) },
-                    hasReviewsToday = todayReviews > 0
-                )
-            }
-
-            item {
-                Text(
-                    text = "Assuntos ($totalTopics)",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ZentTextDark
-                )
+                Text("Assuntos ($totalTopics)", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ZentTextDark)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
             if (topics.isEmpty()) {
-                item {
-                    EmptyTopicsMessage()
-                }
+                item { EmptyTopicsMessage() }
             } else {
                 items(topics) { topic ->
-                    TopicCardItem(topic = topic, mainColor = mainColor)
+                    // Conta as cartas específicas deste assunto
+                    val cardsInThisTopic = allQuestions.count { it.topicId == topic.id }
+
+                    TopicCardItem(
+                        topic = topic,
+                        mainColor = mainColor,
+                        totalCards = cardsInThisTopic,
+                        onClick = { onNavigateToTopicDetails(topic.id) }
+                    )
                 }
             }
-
-            item {
-                ReviewHintCard(todayReviews)
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+            item { ReviewHintCard(todayReviews); Spacer(modifier = Modifier.height(32.dp)) }
         }
     }
 }
@@ -171,44 +147,28 @@ fun DeckDetailsScreen(
 @Composable
 fun DeckHeaderCard(deck: Deck, mainColor: Color, bgColor: Color, progress: Float) {
     Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, ZentGrayLight),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, ZentGrayLight), modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Box(
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(bgColor),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(bgColor), contentAlignment = Alignment.Center) {
                     Icon(Icons.Outlined.Book, null, tint = mainColor, modifier = Modifier.size(28.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(deck.title, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = ZentTextDark)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = deck.description.ifEmpty { "Sem descrição disponível." },
-                        fontSize = 14.sp, color = ZentGrayText, lineHeight = 20.sp
-                    )
+                    Text(deck.description.ifEmpty { "Sem descrição disponível." }, fontSize = 14.sp, color = ZentGrayText, lineHeight = 20.sp)
                 }
             }
-
             Spacer(modifier = Modifier.height(24.dp))
-
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Progresso Geral", fontSize = 12.sp, color = ZentGrayText)
                 Text("${(progress * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ZentTextDark)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
-                color = mainColor,
-                trackColor = ZentGrayLight
-            )
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)), color = mainColor, trackColor = ZentGrayLight)
         }
     }
 }
@@ -226,16 +186,10 @@ fun StatsGrid(topicsCount: Int, cardsCount: Int, masteredCount: Int, todayCount:
 @Composable
 fun StatItem(modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String) {
     Card(
-        modifier = modifier.aspectRatio(0.85f),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, ZentGrayLight)
+        modifier = modifier.aspectRatio(0.85f), shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, ZentGrayLight)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(ZentGrayLight.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
                 Icon(icon, null, tint = ZentGrayText, modifier = Modifier.size(16.dp))
             }
@@ -250,23 +204,16 @@ fun StatItem(modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.v
 fun ActionButtons(mainColor: Color, onCreateTopicClick: () -> Unit, hasReviewsToday: Boolean) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Button(
-            onClick = { /* Iniciar Quiz */ },
-            modifier = Modifier.weight(1f).height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton),
-            shape = RoundedCornerShape(16.dp),
-            enabled = hasReviewsToday
+            onClick = { /* Iniciar Quiz */ }, modifier = Modifier.weight(1f).height(56.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton), shape = RoundedCornerShape(16.dp), enabled = hasReviewsToday
         ) {
             Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(20.dp), tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Estudar Agora", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
-
         OutlinedButton(
-            onClick = onCreateTopicClick,
-            modifier = Modifier.weight(1f).height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, ZentGrayLight),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = ZentTextDark)
+            onClick = onCreateTopicClick, modifier = Modifier.weight(1f).height(56.dp),
+            shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, ZentGrayLight), colors = ButtonDefaults.outlinedButtonColors(contentColor = ZentTextDark)
         ) {
             Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -276,15 +223,14 @@ fun ActionButtons(mainColor: Color, onCreateTopicClick: () -> Unit, hasReviewsTo
 }
 
 @Composable
-fun TopicCardItem(topic: Topic, mainColor: Color) {
+fun TopicCardItem(topic: Topic, mainColor: Color, totalCards: Int, onClick: () -> Unit) {
     val progress = if (topic.intervalDays > 5) 1f else (topic.intervalDays / 5f).coerceIn(0f, 1f)
     val nextReviewText = getNextReviewText(topic.nextReviewDate)
 
     Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, ZentGrayLight),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable { onClick() } // CLICÁVEL AQUI
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -299,23 +245,14 @@ fun TopicCardItem(topic: Topic, mainColor: Color) {
                 }
                 Icon(Icons.Default.MoreVert, null, tint = ZentGrayText, modifier = Modifier.size(20.dp))
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("10 cartas", fontSize = 11.sp, color = ZentGrayText)
+                Text("$totalCards cartas", fontSize = 11.sp, color = ZentGrayText)
                 Text("${(progress * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = ZentTextDark)
             }
             Spacer(modifier = Modifier.height(6.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
-                color = mainColor,
-                trackColor = ZentGrayLight
-            )
-
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)), color = mainColor, trackColor = ZentGrayLight)
             Spacer(modifier = Modifier.height(12.dp))
-
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Event, null, tint = ZentGrayText, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -335,12 +272,7 @@ fun EmptyTopicsMessage() {
 
 @Composable
 fun ReviewHintCard(todayReviews: Int) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-        border = BorderStroke(1.dp, ZentGrayLight),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)), border = BorderStroke(1.dp, ZentGrayLight), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Lightbulb, null, tint = Color(0xFFEAB308), modifier = Modifier.size(20.dp))
@@ -348,40 +280,16 @@ fun ReviewHintCard(todayReviews: Int) {
                 Text("Dica de Revisão", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = ZentTextDark)
             }
             Spacer(modifier = Modifier.height(12.dp))
-            val text = if (todayReviews > 0) {
-                "Você tem $todayReviews assuntos para revisar hoje. Revisar regularmente melhora a retenção!"
-            } else {
-                "Tudo em dia! Você não tem assuntos pendentes para hoje. Que tal criar um novo?"
-            }
+            val text = if (todayReviews > 0) "Você tem $todayReviews assuntos para revisar hoje. Revisar regularmente melhora a retenção!" else "Tudo em dia! Você não tem assuntos pendentes para hoje. Que tal criar um novo?"
             Text(text, fontSize = 13.sp, color = ZentGrayText, lineHeight = 20.sp)
         }
     }
 }
 
-fun parseHexColor(hex: String): Color {
-    return try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { ZentGreenPrimary }
-}
-
-fun isReviewTodayOrPast(timestamp: Long): Boolean {
-    if (timestamp == 0L) return true
-    val today = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
-    }.timeInMillis
-    return timestamp <= today
-}
-
+fun parseHexColor(hex: String): Color { return try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { ZentGreenPrimary } }
+fun isReviewTodayOrPast(timestamp: Long): Boolean { if (timestamp == 0L) return true; val today = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59) }.timeInMillis; return timestamp <= today }
 fun getNextReviewText(timestamp: Long): String {
     if (timestamp == 0L) return "Hoje"
-
-    val current = Calendar.getInstance()
-    val reviewDate = Calendar.getInstance().apply { timeInMillis = timestamp }
-
-    val diffMillis = reviewDate.timeInMillis - current.timeInMillis
-    val diffDays = diffMillis / (1000 * 60 * 60 * 24)
-
-    return when {
-        diffDays <= 0 -> "Hoje"
-        diffDays == 1L -> "Amanhã"
-        else -> "$diffDays dias"
-    }
+    val diffDays = (timestamp - Calendar.getInstance().timeInMillis) / (1000 * 60 * 60 * 24)
+    return when { diffDays <= 0 -> "Hoje"; diffDays == 1L -> "Amanhã"; else -> "$diffDays dias" }
 }

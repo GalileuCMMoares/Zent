@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "decks")
 data class DeckEntity(
     @PrimaryKey val id: String,
-    val userId: String,
+    var userId: String,
     val title: String,
     val description: String,
     val colorHex: String,

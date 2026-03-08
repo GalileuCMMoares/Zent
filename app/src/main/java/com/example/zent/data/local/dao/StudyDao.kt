@@ -15,24 +15,32 @@ interface StudyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTopic(topic: TopicEntity)
 
-    // Traz todos os assuntos de uma matéria para listar na tela
     @Query("SELECT * FROM topics WHERE deckId = :deckId AND isDeleted = 0")
     fun getTopicsByDeck(deckId: String): Flow<List<TopicEntity>>
 
-    // A MÁGICA: Busca os Assuntos que estão na hora de revisar (Data de revisão <= Hoje)
+    // NOVO: Busca apenas um assunto específico (Para a tela de Detalhes do Assunto)
+    @Query("SELECT * FROM topics WHERE id = :topicId LIMIT 1")
+    fun observeTopicById(topicId: String): Flow<TopicEntity?>
+
     @Query("SELECT * FROM topics WHERE deckId = :deckId AND nextReviewDate <= :currentTimestamp AND isDeleted = 0")
     suspend fun getTopicsToReview(deckId: String, currentTimestamp: Long): List<TopicEntity>
 
-    // Atualiza os dados do algoritmo após o aluno terminar o Quiz
     @Query("UPDATE topics SET nextReviewDate = :nextDate, intervalDays = :interval, easeFactor = :ease, repetitions = :reps WHERE id = :topicId")
     suspend fun updateTopicSrsData(topicId: String, nextDate: Long, interval: Int, ease: Float, reps: Int)
 
 
     // --- QUESTÕES DO QUIZ ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertQuestion(question: QuestionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuestions(questions: List<QuestionEntity>)
 
-    // Quando o aluno clicar no Assunto, puxamos as questões para montar a tela do Quiz
+    // NOVO: Busca as questões de um Assunto em tempo real
     @Query("SELECT * FROM questions WHERE topicId = :topicId AND isDeleted = 0")
-    suspend fun getQuestionsForTopic(topicId: String): List<QuestionEntity>
+    fun observeQuestionsByTopic(topicId: String): Flow<List<QuestionEntity>>
+
+    // NOVO: Busca TODAS as questões de uma Matéria (Deck) para calcularmos as estatísticas reais
+    @Query("SELECT questions.* FROM questions INNER JOIN topics ON questions.topicId = topics.id WHERE topics.deckId = :deckId AND questions.isDeleted = 0")
+    fun observeQuestionsByDeck(deckId: String): Flow<List<QuestionEntity>>
 }

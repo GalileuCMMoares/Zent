@@ -62,6 +62,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.firebase.auth)
+    implementation(libs.generativeai)
+    implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
 

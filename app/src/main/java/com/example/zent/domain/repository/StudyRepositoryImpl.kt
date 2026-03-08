@@ -1,12 +1,12 @@
 package com.example.zent.data.repository
 
-import com.example.zent.data.local.DeckEntity
 import com.example.zent.data.local.dao.DeckDao
-import com.example.zent.data.local.dao.StudyDao // Import do novo DAO
+import com.example.zent.data.local.dao.StudyDao
 import com.example.zent.data.mapper.toDomain
 import com.example.zent.data.mapper.toEntity
 import com.example.zent.data.mapper.toRemote
 import com.example.zent.domain.model.Deck
+import com.example.zent.domain.model.Question
 import com.example.zent.domain.model.Topic
 import com.example.zent.domain.repository.StudyRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -25,76 +25,59 @@ class StudyRepositoryImpl(
     override suspend fun createDeck(deck: Deck): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid ?: throw Exception("Usuário não está logado")
-
-            val deckEntity = DeckEntity(
-                id = deck.id,
-                userId = userId,
-                title = deck.title,
-                description = deck.description,
-                colorHex = deck.colorHex,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-
+            val deckEntity = deck.toEntity()
+            deckEntity.userId = userId
             deckDao.insertDeck(deckEntity)
-
-            val deckRemote = deckEntity.toRemote()
-
-            firestore.collection("users")
-                .document(userId)
-                .collection("decks")
-                .document(deck.id)
-                .set(deckRemote)
-                .await()
-
+            firestore.collection("users").document(userId).collection("decks").document(deck.id).set(deckEntity.toRemote()).await()
             Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     override fun getDecks(): Flow<List<Deck>> {
         val userId = auth.currentUser?.uid ?: ""
-        return deckDao.getDecksByUser(userId).map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return deckDao.getDecksByUser(userId).map { entities -> entities.map { it.toDomain() } }
     }
 
     override fun getDeckById(deckId: String): Flow<Deck?> {
-        return deckDao.observeDeckById(deckId).map { entity ->
-            entity?.toDomain()
-        }
+        return deckDao.observeDeckById(deckId).map { it?.toDomain() }
     }
 
     override fun getTopicsByDeckId(deckId: String): Flow<List<Topic>> {
-        return studyDao.getTopicsByDeck(deckId).map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return studyDao.getTopicsByDeck(deckId).map { entities -> entities.map { it.toDomain() } }
     }
 
-    // NOVO: Salva o assunto (Topic) localmente e na nuvem
     override suspend fun createTopic(topic: Topic): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid ?: throw Exception("Usuário não está logado")
-
-            // 1. Salva no SQLite (Room)
-            val topicEntity = topic.toEntity()
-            studyDao.insertTopic(topicEntity)
-
-            // 2. Salva no Firebase
-            val topicRemote = topic.toRemote()
-            firestore.collection("users")
-                .document(userId)
-                .collection("decks")
-                .document(topic.deckId)
-                .collection("topics") // Subpasta de assuntos dentro da matéria
-                .document(topic.id)
-                .set(topicRemote)
-                .await()
-
+            studyDao.insertTopic(topic.toEntity())
+            firestore.collection("users").document(userId).collection("decks").document(topic.deckId).collection("topics").document(topic.id).set(topic.toRemote()).await()
             Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    // --- NOVAS IMPLEMENTAÇÕES ---
+
+    override fun getTopicById(topicId: String): Flow<Topic?> {
+        return studyDao.observeTopicById(topicId).map { it?.toDomain() }
+    }
+
+    override fun getQuestionsByTopicId(topicId: String): Flow<List<Question>> {
+        return studyDao.observeQuestionsByTopic(topicId).map { entities -> entities.map { it.toDomain() } }
+    }
+
+    override fun getQuestionsByDeckId(deckId: String): Flow<List<Question>> {
+        return studyDao.observeQuestionsByDeck(deckId).map { entities -> entities.map { it.toDomain() } }
+    }
+
+    override suspend fun createQuestions(questions: List<Question>): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid ?: throw Exception("Usuário não logado")
+            questions.forEach { q ->
+                studyDao.insertQuestion(q.toEntity())
+                firestore.collection("users").document(userId).collection("decks").document(q.topicId) // Simplificando caminho
+                    .collection("questions").document(q.id).set(q.toRemote()).await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e) }
     }
 }

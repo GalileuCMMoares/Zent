@@ -25,6 +25,7 @@ import androidx.navigation.navArgument
 import com.example.zent.presentation.CreateDeckScreen
 import com.example.zent.presentation.HomeScreen
 import com.example.zent.presentation.LibraryScreen
+import com.example.zent.presentation.TopicDetailsScreen
 import com.example.zent.presentation.login.ForgotPasswordScreen
 import com.example.zent.presentation.login.LoginScreen
 import com.example.zent.presentation.login.RegisterScreen
@@ -62,7 +63,9 @@ fun MainScreen() {
     // Identifica telas que tem a própria barra de topo ou não devem exibir a bottom bar
     val isCustomTopBarScreen = currentRoute == Screen.CreateQuiz.route ||
             currentRoute?.startsWith("deck_details") == true ||
-            currentRoute?.startsWith("create_topic") == true // <-- Adicionado
+            currentRoute?.startsWith("create_topic") == true ||
+            currentRoute?.startsWith("topic_details") == true ||
+            currentRoute?.startsWith("quiz") == true // <-- ADICIONE AQUI
 
     val showBottomBar = isMainScreen
     val showTopBar = !isAuthScreen && !isCustomTopBarScreen
@@ -155,9 +158,32 @@ fun MainScreen() {
                 DeckDetailsScreen(
                     deckId = deckId,
                     onBackClick = { navController.popBackStack() },
-                    onNavigateToCreateTopic = { id ->
-                        navController.navigate("create_topic/$id") // <-- Ativa o botão Novo Assunto!
-                    }
+                    onNavigateToCreateTopic = { id -> navController.navigate("create_topic/$id") },
+                    onNavigateToTopicDetails = { topicId -> navController.navigate("topic_details/$topicId") } // <-- NOVO!
+                )
+            }
+
+            composable(
+                route = "topic_details/{topicId}",
+                arguments = listOf(navArgument("topicId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
+                TopicDetailsScreen(
+                    topicId = topicId,
+                    onBackClick = { navController.popBackStack() },
+                    // A MÁGICA DA NAVEGAÇÃO ACONTECE AQUI:
+                    onNavigateToQuiz = { id -> navController.navigate("quiz/$id") }
+                )
+            }
+
+            composable(
+                route = "quiz/{topicId}",
+                arguments = listOf(navArgument("topicId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
+                QuizScreen(
+                    topicId = topicId,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 

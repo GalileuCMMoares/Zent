@@ -51,6 +51,34 @@ fun DeckEntity.toDomain(totalCards: Int = 0, toReviewCount: Int = 0): Deck {
     )
 }
 
+// NOVO: Do Domínio (Tela) para o Banco Local (SQLite)
+fun Deck.toEntity(): DeckEntity {
+    return DeckEntity(
+        id = this.id,
+        userId = "", // O repositório vai preencher com o ID do usuário
+        title = this.title,
+        description = this.description,
+        colorHex = this.colorHex,
+        createdAt = System.currentTimeMillis(),
+        updatedAt = System.currentTimeMillis(),
+        isDeleted = false
+    )
+}
+
+// NOVO: Do Domínio (Tela) para a Nuvem (Firebase)
+fun Deck.toRemote(): DeckRemote {
+    return DeckRemote(
+        id = this.id,
+        userId = "", // O repositório vai preencher com o ID do usuário
+        title = this.title,
+        description = this.description,
+        colorHex = this.colorHex,
+        createdAt = System.currentTimeMillis(),
+        updatedAt = System.currentTimeMillis(),
+        isDeleted = false
+    )
+}
+
 // ==========================================
 // TOPIC (ASSUNTO) MAPPERS
 // ==========================================
@@ -100,7 +128,7 @@ fun TopicEntity.toDomain(): Topic {
     )
 }
 
-// NOVO: Do Domínio (Tela) para o Banco Local (SQLite)
+// Do Domínio (Tela) para o Banco Local (SQLite)
 fun Topic.toEntity(): TopicEntity {
     return TopicEntity(
         id = this.id,
@@ -111,13 +139,13 @@ fun Topic.toEntity(): TopicEntity {
         intervalDays = this.intervalDays,
         easeFactor = this.easeFactor,
         repetitions = this.repetitions,
-        createdAt = System.currentTimeMillis(), // Carimbo de tempo de criação
+        createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis(),
         isDeleted = false
     )
 }
 
-// NOVO: Do Domínio (Tela) para a Nuvem (Firebase)
+// Do Domínio (Tela) para a Nuvem (Firebase)
 fun Topic.toRemote(): TopicRemote {
     return TopicRemote(
         id = this.id,
@@ -170,7 +198,7 @@ fun QuestionEntity.toDomain(): Question {
     )
 }
 
-// NOVO: Do Domínio (Tela) para o Banco Local (SQLite)
+// Do Domínio (Tela) para o Banco Local (SQLite)
 fun Question.toEntity(): QuestionEntity {
     return QuestionEntity(
         id = this.id,
@@ -182,7 +210,7 @@ fun Question.toEntity(): QuestionEntity {
     )
 }
 
-// NOVO: Do Domínio (Tela) para a Nuvem (Firebase)
+// Do Domínio (Tela) para a Nuvem (Firebase)
 fun Question.toRemote(): QuestionRemote {
     return QuestionRemote(
         id = this.id,
