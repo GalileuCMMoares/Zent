@@ -287,9 +287,30 @@ fun ReviewHintCard(todayReviews: Int) {
 }
 
 fun parseHexColor(hex: String): Color { return try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { ZentGreenPrimary } }
-fun isReviewTodayOrPast(timestamp: Long): Boolean { if (timestamp == 0L) return true; val today = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59) }.timeInMillis; return timestamp <= today }
+
+fun isReviewTodayOrPast(timestamp: Long): Boolean {
+    if (timestamp == 0L) return true
+    val endOfToday = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 23)
+        set(Calendar.MINUTE, 59)
+        set(Calendar.SECOND, 59)
+    }.timeInMillis
+    return timestamp <= endOfToday
+}
+
 fun getNextReviewText(timestamp: Long): String {
     if (timestamp == 0L) return "Hoje"
-    val diffDays = (timestamp - Calendar.getInstance().timeInMillis) / (1000 * 60 * 60 * 24)
-    return when { diffDays <= 0 -> "Hoje"; diffDays == 1L -> "Amanhã"; else -> "$diffDays dias" }
+    val now = Calendar.getInstance()
+    val review = Calendar.getInstance().apply { timeInMillis = timestamp }
+
+    // Compara por dia do calendário, não por diferença de milissegundos
+    val todayDay = now.get(Calendar.DAY_OF_YEAR) + now.get(Calendar.YEAR) * 365
+    val reviewDay = review.get(Calendar.DAY_OF_YEAR) + review.get(Calendar.YEAR) * 365
+    val diffDays = reviewDay - todayDay
+
+    return when {
+        diffDays <= 0 -> "Hoje"
+        diffDays == 1 -> "Amanhã"
+        else -> "$diffDays dias"
+    }
 }

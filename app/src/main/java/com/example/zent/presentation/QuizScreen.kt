@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zent.domain.model.Question
 import com.example.zent.viewmodel.ZentViewModel
 import org.json.JSONArray
 import org.koin.androidx.compose.koinViewModel
@@ -51,9 +51,16 @@ fun QuizScreen(
     val topic by viewModel.selectedTopic.collectAsState()
     val questions by viewModel.selectedTopicQuestions.collectAsState()
 
-    // MÁGICA 3: Pega as 10 cartas mais recentes para a sessão atual!
-    val sessionQuestions = remember(questions) {
-        questions.takeLast(10).shuffled()
+    // Captura as questões da sessão uma única vez para evitar recomposição
+    // quando o ViewModel deleta/regenera questões em background
+    var sessionLoaded by remember { mutableStateOf(false) }
+    var sessionQuestions by remember { mutableStateOf(listOf<Question>()) }
+
+    LaunchedEffect(questions) {
+        if (!sessionLoaded && questions.isNotEmpty()) {
+            sessionQuestions = questions.takeLast(10).shuffled()
+            sessionLoaded = true
+        }
     }
 
     if (topic == null || sessionQuestions.isEmpty()) {
@@ -66,9 +73,12 @@ fun QuizScreen(
     var currentIndex by remember { mutableStateOf(0) }
     var selectedOption by remember { mutableStateOf<String?>(null) }
     var isFlipped by remember { mutableStateOf(false) }
-    var correctCount by remember { mutableStateOf(0) }
-    var wrongCount by remember { mutableStateOf(0) }
+    var questionResults by remember { mutableStateOf(listOf<Pair<String, Boolean>>()) }
     var isFinished by remember { mutableStateOf(false) }
+
+    // Deriva contadores da lista de resultados para a UI
+    val correctCount = questionResults.count { it.second }
+    val wrongCount = questionResults.count { !it.second }
 
     val currentQuestion = sessionQuestions[currentIndex]
 
@@ -153,7 +163,10 @@ fun QuizScreen(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable {
                                 selectedOption = optionText
                                 isFlipped = true
-                                if (optionText == currentQuestion.correctAnswer) correctCount++ else wrongCount++
+                                questionResults = questionResults + Pair(
+                                    currentQuestion.difficulty,
+                                    optionText == currentQuestion.correctAnswer
+                                )
                             }
                         ) {
                             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +186,7 @@ fun QuizScreen(
                                 selectedOption = null
                                 isFlipped = false
                             } else {
-                                topic?.let { viewModel.finishQuizAndUpdateTopic(it, correctCount, sessionQuestions.size) }
+                                topic?.let { viewModel.finishQuizAndUpdateTopic(it, questionResults) }
                                 isFinished = true
                             }
                         },

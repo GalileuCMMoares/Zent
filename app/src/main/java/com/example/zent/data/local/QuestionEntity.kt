@@ -10,5 +10,6 @@ data class QuestionEntity(
     val questionText: String,    // A pergunta gerada pela IA
     val correctAnswer: String,   // A resposta correta
     val options: String,         // Pode guardar um JSON com as alternativas (A, B, C, D) se for múltipla escolha
+    val difficulty: String = "MEDIUM", // "EASY", "MEDIUM", "HARD"
     val isDeleted: Boolean = false
 )

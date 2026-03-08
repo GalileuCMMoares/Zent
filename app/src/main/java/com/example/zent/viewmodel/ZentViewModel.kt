@@ -14,6 +14,9 @@ import com.example.zent.domain.model.Topic
 import com.example.zent.domain.repository.StudyRepository
 import com.example.zent.domain.usecase.FlashcardGenerator
 import com.example.zent.domain.usecase.auth.AuthUseCases
+import com.example.zent.domain.util.QuestionDifficulty
+import com.example.zent.domain.util.QuestionResult
+import com.example.zent.domain.util.SpacedRepetitionAlgorithm
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +42,13 @@ class ZentViewModel(
 ) : ViewModel() {
 
     val decks: StateFlow<List<Deck>> = studyRepository.getDecks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Estatísticas globais: todos os assuntos e questões do usuário
+    val allTopics: StateFlow<List<Topic>> = studyRepository.getAllTopics()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allQuestions: StateFlow<List<Question>> = studyRepository.getAllQuestions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
@@ -67,6 +77,9 @@ class ZentViewModel(
 
     private val _selectedTopicQuestions = MutableStateFlow<List<Question>>(emptyList())
     val selectedTopicQuestions: StateFlow<List<Question>> = _selectedTopicQuestions.asStateFlow()
+
+    private val _isGeneratingCards = MutableStateFlow(false)
+    val isGeneratingCards: StateFlow<Boolean> = _isGeneratingCards.asStateFlow()
 
     fun loadTopicDetails(topicId: String) {
         viewModelScope.launch { studyRepository.getTopicById(topicId).collect { _selectedTopic.value = it } }
@@ -101,7 +114,6 @@ class ZentViewModel(
 
                 val topicId = UUID.randomUUID().toString()
 
-                // MÁGICA 1: Salva o nível escolar e o material completo para as próximas revisões!
                 val safeMaterial = if (material.isNotBlank()) material.take(15000) else "Material visual/PDF anexo."
                 val savedContext = "[NIVEL:$difficulty]\n$safeMaterial"
 
@@ -116,7 +128,14 @@ class ZentViewModel(
                 if (generatedCards.isEmpty()) throw Exception("A IA não conseguiu extrair perguntas.")
 
                 val questionsToSave = generatedCards.map { card ->
-                    Question(id = UUID.randomUUID().toString(), topicId = topicId, questionText = card.question, correctAnswer = card.correctAnswer, options = card.options)
+                    Question(
+                        id = UUID.randomUUID().toString(),
+                        topicId = topicId,
+                        questionText = card.question,
+                        correctAnswer = card.correctAnswer,
+                        options = card.options,
+                        difficulty = card.difficulty
+                    )
                 }
 
                 studyRepository.createTopic(newTopic)
@@ -134,53 +153,44 @@ class ZentViewModel(
         }
     }
 
-    fun finishQuizAndUpdateTopic(topic: Topic, correctAnswers: Int, totalQuestions: Int) {
+    fun finishQuizAndUpdateTopic(
+        topic: Topic,
+        questionResults: List<Pair<String, Boolean>> // Lista de (difficulty, wasCorrect)
+    ) {
         viewModelScope.launch {
             try {
-                // Algoritmo de Repetição Espaçada atualizado
-                val accuracy = if (totalQuestions > 0) correctAnswers.toFloat() / totalQuestions else 0f
-
-                var newEaseFactor = topic.easeFactor
-                var newInterval = topic.intervalDays
-                var newRepetitions = topic.repetitions
-
-                if (accuracy >= 0.8f) { // Acertou +80% (Fácil)
-                    newRepetitions += 1
-                    newEaseFactor += 0.15f
-                    newInterval = if (newRepetitions == 1) 1 else if (newRepetitions == 2) 4 else (newInterval * newEaseFactor).toInt()
-                } else if (accuracy >= 0.6f) { // Acertou entre 60 e 80% (Médio)
-                    newRepetitions += 1
-                    newInterval = if (newRepetitions == 1) 1 else if (newRepetitions == 2) 3 else (newInterval * newEaseFactor).toInt()
-                } else { // Errou muito (Difícil)
-                    newRepetitions = 0
-                    newInterval = 1
-                    newEaseFactor = maxOf(1.3f, newEaseFactor - 0.2f)
+                // 1. Converte os resultados brutos para objetos do domínio
+                val results = questionResults.map { (difficulty, wasCorrect) ->
+                    QuestionResult(
+                        difficulty = QuestionDifficulty.fromString(difficulty),
+                        wasCorrect = wasCorrect
+                    )
                 }
 
-                val nextReview = System.currentTimeMillis() + (newInterval * 24 * 60 * 60 * 1000L)
+                // 2. Executa o algoritmo de repetição espaçada com acurácia ponderada
+                val srsResult = SpacedRepetitionAlgorithm.processQuizResults(
+                    results = results,
+                    currentInterval = topic.intervalDays,
+                    currentEaseFactor = topic.easeFactor,
+                    currentRepetitions = topic.repetitions
+                )
 
-                // Atualiza o banco e o estado atual
-                studyRepository.createTopic(topic.copy(nextReviewDate = nextReview, intervalDays = newInterval, easeFactor = newEaseFactor, repetitions = newRepetitions))
-                _selectedTopic.value = _selectedTopic.value?.copy(nextReviewDate = nextReview, intervalDays = newInterval, easeFactor = newEaseFactor, repetitions = newRepetitions)
+                // 3. Atualiza os dados SRS do tópico no banco
+                studyRepository.updateTopicSrsData(
+                    topicId = topic.id,
+                    nextDate = srsResult.nextReviewDate,
+                    interval = srsResult.intervalDays,
+                    ease = srsResult.easeFactor,
+                    reps = srsResult.repetitions
+                )
 
-                // MÁGICA 2: GERA AS NOVAS CARTAS EM BACKGROUND PARA A PRÓXIMA SESSÃO
-                launch(Dispatchers.IO) {
-                    try {
-                        val savedMaterial = topic.sourceMaterial
-                        val level = if (savedMaterial.startsWith("[NIVEL:")) savedMaterial.substringAfter("[NIVEL:").substringBefore("]\n") else "Ensino Médio"
-                        val contextText = if (savedMaterial.startsWith("[NIVEL:")) savedMaterial.substringAfter("]\n") else savedMaterial
-
-                        val generator = FlashcardGenerator()
-                        val newCards = generator.generateCards(contextText, level, null, null) // PDFs/Fotos não serão reutilizados de forma nativa por agora, focaremos no texto salvo
-
-                        if (newCards.isNotEmpty()) {
-                            val questionsToSave = newCards.map { card -> Question(id = UUID.randomUUID().toString(), topicId = topic.id, questionText = card.question, correctAnswer = card.correctAnswer, options = card.options) }
-                            studyRepository.createQuestions(questionsToSave)
-                        }
-                    } catch (e: Exception) {
-                        // Silencioso. Se falhar, o aluno reverá as antigas ou o app tentará gerar depois.
-                    }
-                }
+                // 4. Atualiza o estado local
+                _selectedTopic.value = _selectedTopic.value?.copy(
+                    nextReviewDate = srsResult.nextReviewDate,
+                    intervalDays = srsResult.intervalDays,
+                    easeFactor = srsResult.easeFactor,
+                    repetitions = srsResult.repetitions
+                )
 
             } catch (e: Exception) {
                 eventChannel.send(AuthEvent.ShowToast("Erro ao salvar progresso."))
@@ -188,12 +198,115 @@ class ZentViewModel(
         }
     }
 
+    /**
+     * Chamado quando o aluno clica em "Revisar Assunto" e a data de revisão já chegou.
+     * Deleta as cartas antigas, gera novas com a IA e navega para o quiz.
+     */
+    fun startReviewSession(topic: Topic, onReady: () -> Unit) {
+        _isGeneratingCards.value = true
+
+        viewModelScope.launch {
+            try {
+                // 1. Deleta as cartas antigas
+                studyRepository.deleteQuestionsByTopicId(topic.id)
+
+                // 2. Gera novas cartas com a IA
+                val savedMaterial = topic.sourceMaterial
+                val level = if (savedMaterial.startsWith("[NIVEL:"))
+                    savedMaterial.substringAfter("[NIVEL:").substringBefore("]\n")
+                else "Ensino Médio"
+                val contextText = if (savedMaterial.startsWith("[NIVEL:"))
+                    savedMaterial.substringAfter("]\n")
+                else savedMaterial
+
+                val generator = FlashcardGenerator()
+                val newCards = withContext(Dispatchers.IO) {
+                    generator.generateCards(contextText, level, null, null)
+                }
+
+                if (newCards.isEmpty()) throw Exception("A IA não conseguiu gerar novas questões.")
+
+                val questionsToSave = newCards.map { card ->
+                    Question(
+                        id = UUID.randomUUID().toString(),
+                        topicId = topic.id,
+                        questionText = card.question,
+                        correctAnswer = card.correctAnswer,
+                        options = card.options,
+                        difficulty = card.difficulty
+                    )
+                }
+                studyRepository.createQuestions(questionsToSave)
+
+                _isGeneratingCards.value = false
+                onReady()
+
+            } catch (e: Exception) {
+                _isGeneratingCards.value = false
+                eventChannel.send(AuthEvent.ShowToast("Erro ao gerar novas cartas: ${e.message}"))
+            }
+        }
+    }
+
     // Funções de Auth e afins...
     fun getCurrentUser() = authUseCases.getCurrentUser()
     fun checkIfUserIsLoggedIn() { if (getCurrentUser() != null) viewModelScope.launch { eventChannel.send(AuthEvent.NavigateToHome) } }
-    fun login(email: String, password: String) {}
-    fun register(name: String, email: String, password: String, confirmPassword: String) {}
-    fun sendPasswordReset(email: String) {}
+
+    fun login(email: String, password: String) {
+        _authState.value = AuthState.Loading
+
+        viewModelScope.launch {
+            val result = authUseCases.login(email, password)
+
+            result.fold(
+                onSuccess = {
+                    _authState.value = AuthState.Idle
+                    eventChannel.send(AuthEvent.NavigateToHome)
+                },
+                onFailure = { error ->
+                    _authState.value = AuthState.Error(error.message ?: "Erro desconhecido")
+                }
+            )
+        }
+    }
+
+    fun register(name: String, email: String, password: String, confirmPassword: String) {
+        _authState.value = AuthState.Loading
+
+        viewModelScope.launch {
+            val result = authUseCases.register(name, email, password, confirmPassword)
+
+            result.fold(
+                onSuccess = {
+                    _authState.value = AuthState.Idle
+                    eventChannel.send(AuthEvent.NavigateToHome)
+                },
+                onFailure = { error ->
+                    _authState.value = AuthState.Error(error.message ?: "Erro desconhecido")
+                }
+            )
+        }
+    }
+
+    fun sendPasswordReset(email: String) {
+        _authState.value = AuthState.Loading
+
+        viewModelScope.launch {
+            val result = authUseCases.sendPasswordReset.invoke(email)
+
+            result.fold(
+                onSuccess = {
+                    _authState.value = AuthState.Idle
+                    eventChannel.send(AuthEvent.ShowToast("Link de recuperação enviado com sucesso!"))
+                    eventChannel.send(AuthEvent.NavigateToLogin)
+                },
+                onFailure = { error ->
+                    _authState.value = AuthState.Error(error.message ?: "Erro desconhecido")
+                }
+            )
+        }
+    }
+
     fun logout() { viewModelScope.launch { authUseCases.logout(); eventChannel.send(AuthEvent.NavigateToLogin) } }
     fun resetState() { if (_authState.value is AuthState.Error) _authState.value = AuthState.Idle }
 

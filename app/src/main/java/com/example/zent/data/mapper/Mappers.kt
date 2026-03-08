@@ -173,6 +173,7 @@ fun QuestionRemote.toEntity(): QuestionEntity {
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
         options = this.options,
+        difficulty = this.difficulty,
         isDeleted = this.isDeleted
     )
 }
@@ -184,6 +185,7 @@ fun QuestionEntity.toRemote(): QuestionRemote {
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
         options = this.options,
+        difficulty = this.difficulty,
         isDeleted = this.isDeleted
     )
 }
@@ -194,7 +196,8 @@ fun QuestionEntity.toDomain(): Question {
         topicId = this.topicId,
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
-        options = this.options
+        options = this.options,
+        difficulty = this.difficulty
     )
 }
 
@@ -206,6 +209,7 @@ fun Question.toEntity(): QuestionEntity {
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
         options = this.options,
+        difficulty = this.difficulty,
         isDeleted = false
     )
 }
@@ -218,6 +222,7 @@ fun Question.toRemote(): QuestionRemote {
         questionText = this.questionText,
         correctAnswer = this.correctAnswer,
         options = this.options,
+        difficulty = this.difficulty,
         isDeleted = false
     )
 }

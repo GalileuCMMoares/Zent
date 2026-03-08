@@ -10,7 +10,8 @@ import org.json.JSONArray
 data class GeneratedCard(
     val question: String,
     val correctAnswer: String,
-    val options: String // JSON String com as opções erradas
+    val options: String, // JSON String com as opções erradas
+    val difficulty: String = "MEDIUM" // "EASY", "MEDIUM", "HARD"
 )
 
 class FlashcardGenerator {
@@ -28,13 +29,12 @@ class FlashcardGenerator {
         pdfBytes: ByteArray? = null
     ): List<GeneratedCard> = withContext(Dispatchers.IO) {
 
-        // NOVO PROMPT: 10 perguntas, dificuldades variadas, alinhadas ao nível escolar.
         val prompt = """
             Você é um especialista em educação focado em repetição espaçada (SRS).
             PÚBLICO-ALVO: "$difficultyLevel".
-            
+
             Sua missão é gerar EXATAMENTE 10 questões de múltipla escolha INÉDITAS baseadas estritamente no material fornecido.
-            
+
             DIRETRIZES OBRIGATÓRIAS:
             1. VARIAÇÃO DE DIFICULDADE: Dentro do nível "$difficultyLevel", divida as 10 perguntas em:
                - 3 questões FÁCEIS (Focadas em conceitos básicos e memorização direta).
@@ -42,10 +42,12 @@ class FlashcardGenerator {
                - 3 questões DIFÍCEIS (Exigem raciocínio analítico, detalhes cruciais ou "pegadinhas").
             2. ADAPTAÇÃO: A linguagem deve ser ideal para uma pessoa estudando para "$difficultyLevel".
             3. FOCO: Não faça perguntas de gramática. Foque exclusivamente no conteúdo da matéria.
-            
+
             Retorne EXATAMENTE e APENAS um Array JSON puro neste formato:
-            [{"question": "?", "correctAnswer": "Correta", "wrongOptions": ["Errada 1", "Errada 2", "Errada 3"]}]
-            
+            [{"question": "?", "correctAnswer": "Correta", "wrongOptions": ["Errada 1", "Errada 2", "Errada 3"], "difficulty": "EASY"}]
+
+            O campo "difficulty" DEVE ser exatamente um destes valores: "EASY", "MEDIUM" ou "HARD".
+
             Texto/Contexto:
             $materialText
         """.trimIndent()
@@ -68,11 +70,13 @@ class FlashcardGenerator {
                 val question = item.getString("question")
                 val correctAnswer = item.getString("correctAnswer")
                 val wrongOptionsArray = item.getJSONArray("wrongOptions")
+                val difficulty = item.optString("difficulty", "MEDIUM").uppercase()
+                    .let { if (it in listOf("EASY", "MEDIUM", "HARD")) it else "MEDIUM" }
 
                 val optionsList = mutableListOf<String>()
                 for (j in 0 until wrongOptionsArray.length()) optionsList.add(wrongOptionsArray.getString(j))
 
-                cards.add(GeneratedCard(question, correctAnswer, JSONArray(optionsList).toString()))
+                cards.add(GeneratedCard(question, correctAnswer, JSONArray(optionsList).toString(), difficulty))
             }
             return@withContext cards
 

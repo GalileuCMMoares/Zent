@@ -80,4 +80,38 @@ class StudyRepositoryImpl(
             Result.success(Unit)
         } catch (e: Exception) { Result.failure(e) }
     }
+
+    override suspend fun deleteQuestionsByTopicId(topicId: String): Result<Unit> {
+        return try {
+            studyDao.deleteQuestionsByTopicId(topicId)
+            val userId = auth.currentUser?.uid ?: throw Exception("Usuário não logado")
+            val questionsRef = firestore.collection("users").document(userId)
+                .collection("decks").document(topicId)
+                .collection("questions")
+            val snapshot = questionsRef.get().await()
+            for (doc in snapshot.documents) {
+                doc.reference.delete().await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    override suspend fun updateTopicSrsData(
+        topicId: String, nextDate: Long, interval: Int, ease: Float, reps: Int
+    ): Result<Unit> {
+        return try {
+            studyDao.updateTopicSrsData(topicId, nextDate, interval, ease, reps)
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    override fun getAllTopics(): Flow<List<Topic>> {
+        val userId = auth.currentUser?.uid ?: ""
+        return studyDao.getAllTopicsByUser(userId).map { entities -> entities.map { it.toDomain() } }
+    }
+
+    override fun getAllQuestions(): Flow<List<Question>> {
+        val userId = auth.currentUser?.uid ?: ""
+        return studyDao.getAllQuestionsByUser(userId).map { entities -> entities.map { it.toDomain() } }
+    }
 }

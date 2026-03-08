@@ -8,5 +8,6 @@ data class QuestionRemote(
     val questionText: String = "",    // A pergunta em si
     val correctAnswer: String = "",   // A resposta correta
     val options: String = "",         // JSON string com as opções (ex: '["A", "B", "C"]')
+    val difficulty: String = "MEDIUM", // "EASY", "MEDIUM", "HARD"
     val isDeleted: Boolean = false
 )

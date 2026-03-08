@@ -117,7 +117,14 @@ fun MainScreen() {
             }
 
             // --- TELAS DO APP (PÓS-LOGIN) ---
-            composable(Screen.Home.route) { HomeScreen(contentPadding) }
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    contentPadding = contentPadding,
+                    onNavigateToDeckDetails = { deckId ->
+                        navController.navigate("deck_details/$deckId")
+                    }
+                )
+            }
 
             composable(Screen.Library.route) {
                 LibraryScreen(

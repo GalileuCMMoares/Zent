@@ -5,5 +5,6 @@ data class Question(
     val topicId: String,         // Liga esta pergunta ao Assunto (Topic)
     val questionText: String,    // Pergunta
     val correctAnswer: String,   // Resposta
-    val options: String          // Opções alternativas (A, B, C, D) em JSON
+    val options: String,         // Opções alternativas (A, B, C, D) em JSON
+    val difficulty: String = "MEDIUM" // "EASY", "MEDIUM", "HARD"
 )

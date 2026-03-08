@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -39,25 +38,30 @@ import org.koin.androidx.compose.koinViewModel
 fun TopicDetailsScreen(
     topicId: String,
     onBackClick: () -> Unit,
-    onNavigateToQuiz: (String) -> Unit, // Função de navegação para o Quiz
+    onNavigateToQuiz: (String) -> Unit,
     viewModel: ZentViewModel = koinViewModel()
 ){
     LaunchedEffect(topicId) { viewModel.loadTopicDetails(topicId) }
 
     val topic by viewModel.selectedTopic.collectAsState()
     val questions by viewModel.selectedTopicQuestions.collectAsState()
+    val isGeneratingCards by viewModel.isGeneratingCards.collectAsState()
 
     if (topic == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = ZentGreenPrimary) }
         return
     }
 
-    // Como os dados da matéria não estão nesta tela, usamos as cores padrão
     val mainColor = ZentGreenPrimary
     val bgColor = mainColor.copy(alpha = 0.15f)
 
     val progress = if (topic!!.intervalDays > 5) 1f else (topic!!.intervalDays / 5f).coerceIn(0f, 1f)
     val nextReviewText = getNextReviewText(topic!!.nextReviewDate)
+    val isReviewDue = isReviewTodayOrPast(topic!!.nextReviewDate)
+    // Só regenera cartas se o aluno já completou pelo menos um quiz antes
+    val shouldRegenerateCards = isReviewDue && topic!!.repetitions > 0
+    // O quiz pode ser feito se: nunca estudou (repetitions == 0) OU a data de revisão chegou
+    val canStartQuiz = topic!!.repetitions == 0 || isReviewDue
 
     Scaffold(
         topBar = {
@@ -83,7 +87,46 @@ fun TopicDetailsScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatItem(modifier = Modifier.weight(1f), icon = Icons.Outlined.Book, value = questions.size.toString(), label = "Cartas")
                     StatItem(modifier = Modifier.weight(1f), icon = Icons.Outlined.TrendingUp, value = topic!!.repetitions.toString(), label = "Dominadas")
-                    StatItem(modifier = Modifier.weight(1f), icon = Icons.Outlined.PlayArrow, value = if (isReviewTodayOrPast(topic!!.nextReviewDate)) "Sim" else "Não", label = "Hoje")
+                    StatItem(modifier = Modifier.weight(1f), icon = Icons.Outlined.PlayArrow, value = if (isReviewDue) "Sim" else "Não", label = "Hoje")
+                }
+            }
+
+            // Feedback visual: Gerando novas cartas
+            if (isGeneratingCards) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)),
+                        border = BorderStroke(1.dp, Color(0xFFFDBA74)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color(0xFFF97316),
+                                strokeWidth = 3.dp
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    "Gerando novas questões...",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF9A3412)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "A IA está criando questões inéditas para sua revisão.",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFB45309),
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -91,13 +134,27 @@ fun TopicDetailsScreen(
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(
-                        onClick = { onNavigateToQuiz(topicId) }, // <-- AGORA CONECTADO AO QUIZ!
+                        onClick = {
+                            if (!isGeneratingCards && canStartQuiz) {
+                                if (shouldRegenerateCards) {
+                                    viewModel.startReviewSession(topic!!) {
+                                        onNavigateToQuiz(topicId)
+                                    }
+                                } else {
+                                    onNavigateToQuiz(topicId)
+                                }
+                            }
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
+                        enabled = !isGeneratingCards && canStartQuiz,
                         colors = ButtonDefaults.buttonColors(containerColor = ZentPurpleButton), shape = RoundedCornerShape(16.dp)
                     ) {
                         Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(20.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Revisar Assunto", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            if (!canStartQuiz) "Revisão: $nextReviewText" else "Revisar Assunto",
+                            fontWeight = FontWeight.Bold, fontSize = 14.sp
+                        )
                     }
                     OutlinedButton(
                         onClick = { /* Ver texto */ }, modifier = Modifier.weight(1f).height(56.dp),
@@ -110,7 +167,7 @@ fun TopicDetailsScreen(
                 }
             }
 
-            // 4. Lista de Cartas
+            // 4. Lista de Cartas (só frente, sem verso)
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cartas (${questions.size})", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ZentTextDark)
@@ -123,7 +180,7 @@ fun TopicDetailsScreen(
             }
 
             items(questions) { question ->
-                QuestionCardItem(question = question)
+                QuestionCardItem(question = question, showAnswer = topic!!.repetitions > 0)
             }
 
             // 5. Footer Dica
@@ -174,25 +231,43 @@ fun TopicHeaderCard(topic: Topic, progress: Float) {
 }
 
 @Composable
-fun QuestionCardItem(question: Question) {
+fun QuestionCardItem(question: Question, showAnswer: Boolean = false) {
     Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, ZentGrayLight), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(ZentGreenPrimary))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Frente", fontSize = 11.sp, color = ZentGrayText, fontWeight = FontWeight.Medium)
+                    Text("Pergunta", fontSize = 11.sp, color = ZentGrayText, fontWeight = FontWeight.Medium)
                 }
-                Icon(Icons.Default.MoreVert, null, tint = ZentGrayText, modifier = Modifier.size(16.dp))
+                // Badge de dificuldade
+                val diffColor = when (question.difficulty) {
+                    "EASY" -> Color(0xFF16A34A)
+                    "HARD" -> Color(0xFFDC2626)
+                    else -> Color(0xFFEAB308)
+                }
+                val diffLabel = when (question.difficulty) {
+                    "EASY" -> "Fácil"
+                    "HARD" -> "Difícil"
+                    else -> "Média"
+                }
+                Box(
+                    modifier = Modifier
+                        .background(diffColor.copy(alpha = 0.1f), RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(diffLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = diffColor)
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(question.questionText, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = ZentTextDark)
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text("Verso", fontSize = 11.sp, color = ZentGrayText, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(question.correctAnswer, fontSize = 14.sp, color = ZentGrayText, lineHeight = 20.sp)
+            if (showAnswer) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Resposta", fontSize = 11.sp, color = ZentGrayText, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(question.correctAnswer, fontSize = 14.sp, color = ZentGrayText, lineHeight = 20.sp)
+            }
         }
     }
 }

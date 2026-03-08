@@ -30,6 +30,7 @@ object AppModules {
                 ZentDatabase::class.java,
                 "zent_database"
             )
+                .addMigrations(ZentDatabase.MIGRATION_2_3)
                 .fallbackToDestructiveMigration() // Evita crashes se mudarmos as tabelas durante o dev
                 .build()
         }

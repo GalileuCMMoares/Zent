@@ -43,4 +43,18 @@ interface StudyDao {
     // NOVO: Busca TODAS as questões de uma Matéria (Deck) para calcularmos as estatísticas reais
     @Query("SELECT questions.* FROM questions INNER JOIN topics ON questions.topicId = topics.id WHERE topics.deckId = :deckId AND questions.isDeleted = 0")
     fun observeQuestionsByDeck(deckId: String): Flow<List<QuestionEntity>>
+
+    // Deleta todas as questões de um assunto (para gerar novas na próxima revisão)
+    @Query("DELETE FROM questions WHERE topicId = :topicId")
+    suspend fun deleteQuestionsByTopicId(topicId: String)
+
+    // --- ESTATÍSTICAS GLOBAIS ---
+
+    // Busca TODOS os assuntos do usuário (join com decks para filtrar por userId)
+    @Query("SELECT topics.* FROM topics INNER JOIN decks ON topics.deckId = decks.id WHERE decks.userId = :userId AND topics.isDeleted = 0 AND decks.isDeleted = 0")
+    fun getAllTopicsByUser(userId: String): Flow<List<TopicEntity>>
+
+    // Busca TODAS as questões do usuário
+    @Query("SELECT questions.* FROM questions INNER JOIN topics ON questions.topicId = topics.id INNER JOIN decks ON topics.deckId = decks.id WHERE decks.userId = :userId AND questions.isDeleted = 0 AND topics.isDeleted = 0 AND decks.isDeleted = 0")
+    fun getAllQuestionsByUser(userId: String): Flow<List<QuestionEntity>>
 }

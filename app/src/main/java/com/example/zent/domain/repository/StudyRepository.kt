@@ -18,4 +18,10 @@ interface StudyRepository {
     fun getQuestionsByTopicId(topicId: String): Flow<List<Question>>
     fun getQuestionsByDeckId(deckId: String): Flow<List<Question>>
     suspend fun createQuestions(questions: List<Question>): Result<Unit>
+    suspend fun deleteQuestionsByTopicId(topicId: String): Result<Unit>
+    suspend fun updateTopicSrsData(topicId: String, nextDate: Long, interval: Int, ease: Float, reps: Int): Result<Unit>
+
+    // Estatísticas globais
+    fun getAllTopics(): Flow<List<Topic>>
+    fun getAllQuestions(): Flow<List<Question>>
 }
