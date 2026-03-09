@@ -6,6 +6,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val geminiApiKey = providers.environmentVariable("GEMINI_API_KEY").orElse("").get()
+val escapedGeminiApiKey = geminiApiKey
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
 android {
     namespace = "com.example.zent"
     compileSdk = 36
@@ -16,6 +21,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"$escapedGeminiApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +44,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }

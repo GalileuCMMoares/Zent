@@ -53,6 +53,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.zent.viewmodel.AuthEvent
 import com.example.zent.viewmodel.AuthState
 import com.example.zent.viewmodel.ZentViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -78,9 +79,11 @@ fun RegisterScreen(
 
     val authState by viewModel.authState.collectAsState()
 
-    LaunchedEffect(authState) {
-        if (authState is AuthState.Success) {
-            onRegisterSuccess()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            if (event is AuthEvent.NavigateToHome) {
+                onRegisterSuccess()
+            }
         }
     }
 

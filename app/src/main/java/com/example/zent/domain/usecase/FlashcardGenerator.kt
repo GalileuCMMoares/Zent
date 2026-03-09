@@ -1,6 +1,7 @@
 package com.example.zent.domain.usecase
 
 import android.graphics.Bitmap
+import com.example.zent.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import kotlinx.coroutines.Dispatchers
@@ -16,11 +17,15 @@ data class GeneratedCard(
 
 class FlashcardGenerator {
 
-    // Lembre-se de substituir pela sua chave real!
-    private val generativeModel = GenerativeModel(
-        modelName = "gemini-2.5-flash",
-        apiKey = "AIzaSyAIQML5LmC-DkywfeGNm3IermFHGOAzAuU"
-    )
+    private val generativeModel by lazy {
+        val apiKey = BuildConfig.GEMINI_API_KEY.takeIf(String::isNotBlank)
+            ?: error("Configure a variável de ambiente GEMINI_API_KEY para usar o Gemini.")
+
+        GenerativeModel(
+            modelName = "gemini-2.5-flash",
+            apiKey = apiKey
+        )
+    }
 
     suspend fun generateCards(
         materialText: String,
