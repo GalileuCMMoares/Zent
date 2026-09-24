@@ -1,15 +1,38 @@
+## Android Studio / IntelliJ
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+## Local machine configuration
 local.properties
+.claude/
+
+## Firebase app configuration (each developer supplies their own)
+**/google-services.json
+
+## Secrets and signing material
+.env
+.env.*
+!.env.example
+secrets.properties
+**/secrets.properties
+*.jks
+*.keystore
+
+## Gradle and Kotlin build output
+.gradle/
+.kotlin/
+build/
+**/build/
+.externalNativeBuild/
+.cxx/
+captures/
+
+## Generated packages and dumps
+*.apk
+*.aab
+*.ap_
+*.hprof
+
+## Operating system files
+.DS_Store
+Thumbs.db
